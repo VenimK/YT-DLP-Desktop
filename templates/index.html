@@ -127,7 +127,13 @@
         <div style="margin-top: 20px; border-top: 2px solid var(--gray-200); padding-top: 20px;">
           <div class="accordion-header active" onclick="UI.accordion.toggle('advancedOptions')">
             <h3><i class="fas fa-cog"></i> Advanced Options</h3>
-            <i class="fas fa-chevron-down accordion-toggle"></i>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <label class="checkbox-group" onclick="event.stopPropagation()" style="font-size: 0.85em; margin: 0;">
+                <input type="checkbox" id="showAdvancedByDefault" onchange="App.toggleAdvancedDefault(this.checked)">
+                <span><i class="fas fa-eye"></i> Always show</span>
+              </label>
+              <i class="fas fa-chevron-down accordion-toggle"></i>
+            </div>
           </div>
           
           <div id="advancedOptions" class="accordion-content active" style="display: block;">

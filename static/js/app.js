@@ -9,6 +9,7 @@ const App = {
     this.initModules();
     this.setupEventListeners();
     this.setupKeyboardShortcuts();
+    this.loadAdvancedOptionsPreference();
     
     console.log('🚀 YT-DLP Desktop initialized');
   },
@@ -196,6 +197,44 @@ const App = {
     const bgColor = isError ? '%23fee2e2' : '%23e2e8f0';
     const textColor = isError ? '%23dc2626' : '%23647569';
     return `data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"%3E%3Crect width="320" height="180" fill="${bgColor}"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="${textColor}" font-family="Arial" font-size="16"%3E${encodeURIComponent(text)}%3C/text%3E%3C/svg%3E`;
+  },
+  
+  // Load advanced options visibility preference
+  loadAdvancedOptionsPreference() {
+    const showByDefault = Utils.storage.get('showAdvancedByDefault', true);
+    const checkbox = document.getElementById('showAdvancedByDefault');
+    const accordionHeader = document.querySelector('.accordion-header');
+    const accordionContent = document.getElementById('advancedOptions');
+    
+    if (checkbox) checkbox.checked = showByDefault;
+    
+    if (!showByDefault && accordionHeader && accordionContent) {
+      accordionHeader.classList.remove('active');
+      accordionContent.classList.remove('active');
+      accordionContent.style.display = 'none';
+    }
+  },
+  
+  // Toggle advanced options default visibility
+  toggleAdvancedDefault(checked) {
+    Utils.storage.set('showAdvancedByDefault', checked);
+    
+    const accordionHeader = document.querySelector('.accordion-header');
+    const accordionContent = document.getElementById('advancedOptions');
+    
+    if (checked) {
+      // Show advanced options
+      accordionHeader.classList.add('active');
+      accordionContent.classList.add('active');
+      accordionContent.style.display = 'block';
+    } else {
+      // Hide advanced options
+      accordionHeader.classList.remove('active');
+      accordionContent.classList.remove('active');
+      accordionContent.style.display = 'none';
+    }
+    
+    UI.toast.info(checked ? 'Advanced options will always be shown' : 'Advanced options will be hidden by default');
   },
   
   // Clear form
