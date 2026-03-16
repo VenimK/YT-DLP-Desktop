@@ -368,7 +368,12 @@ def get_video_info():
     if not ('youtube.com' in url or 'youtu.be' in url):
         return jsonify({'error': 'Invalid YouTube URL'}), 400
     
-    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download', '--no-playlist', url]
+    # Check if this is a playlist URL
+    is_playlist = 'playlist?' in url or 'list=' in url
+    
+    # For playlists, get first item; for videos, use --no-playlist
+    no_playlist_flag = ['--no-playlist'] if not is_playlist else []
+    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download'] + no_playlist_flag + [url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -388,8 +393,21 @@ def get_video_info():
                     # Try to get the highest quality thumbnail
                     thumbnails = video_data['thumbnails']
                     if thumbnails:
-                        # Sort by preference or get last one (usually highest res)
-                        thumbnail = thumbnails[-1].get('url') if isinstance(thumbnails, list) else thumbnails
+                        # Get last thumbnail (usually highest res) or try to find maxres
+                        if isinstance(thumbnails, list) and len(thumbnails) > 0:
+                            # Prefer maxresdefault if available
+                            maxres = [t for t in thumbnails if 'maxres' in str(t.get('url', ''))]
+                            if maxres:
+                                thumbnail = maxres[0].get('url')
+                            else:
+                                thumbnail = thumbnails[-1].get('url')
+                        else:
+                            thumbnail = thumbnails
+                
+                # Also try to get thumbnail from video ID if still no thumbnail
+                if not thumbnail and video_data.get('id'):
+                    video_id = video_data.get('id')
+                    thumbnail = f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg"
                 
                 # Get available formats for quality selection
                 formats = []
@@ -425,7 +443,8 @@ def get_video_info():
                     'like_count': video_data.get('like_count'),
                     'upload_date': upload_date,
                     'formats': formats,
-                    'original_url': video_data.get('webpage_url') or url
+                    'original_url': video_data.get('webpage_url') or url,
+                    'is_playlist': is_playlist
                 })
             except json.JSONDecodeError as e:
                 return jsonify({'error': f'Failed to parse video data: {str(e)}'}), 500
