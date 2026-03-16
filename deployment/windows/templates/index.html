@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+    /* Loading thumbnail placeholder – match label colors */
+    #previewThumbnail[alt]::before {
+        content: attr(alt);
+        display: block;
+        text-align: center;
+        padding-top: 70px;
+        color: var(--gray-800);
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+    </style>
+    <title>Professional YouTube Downloader</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+:root {
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --success: #10b981;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --gray-100: #f8fafc;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-600: #475569;
+  --gray-800: #1e293b;
+}
+
+/* Dark mode variables */
+[data-theme="dark"] {
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --success: #34d399;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --gray-100: #1e293b;
+  --gray-200: #334155;
+  --gray-300: #475569;
+  --gray-600: #94a3b8;
+  --gray-800: #f1f5f9;
+}
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  padding: 20px;
+  transition: background 0.3s ease;
+}
+
+[data-theme="dark"] body {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+}
+
+[data-theme="dark"] .container {
+  background: rgba(30, 41, 59, 0.95);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select {
+  background: #1e293b;
+  color: var(--gray-800);
+  border-color: var(--gray-300);
+}
+
+[data-theme="dark"] input:focus,
+[data-theme="dark"] select:focus {
+  background: #0f172a;
+}
+
+[data-theme="dark"] #playlistList {
+  background: #1e293b;
+  border-color: var(--gray-300);
+}
+
+[data-theme="dark"] #playlistList > div:hover {
+  background: #0f172a;
+}
+
+[data-theme="dark"] #downloadsList {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .status-panel {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .download-info {
+  background: #1e293b;
+  border-color: var(--gray-300);
+}
+
+[data-theme="dark"] #currentFile,
+[data-theme="dark"] #downloadStats {
+  color: var(--gray-800);
+}
+
+[data-theme="dark"] #videoPreview {
+  background: var(--gray-100);
+  border-color: var(--gray-300);
+}
+
+[data-theme="dark"] .checkbox-group span {
+  color: var(--gray-800);
+}
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: var(--gray-800);
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: var(--gray-600);
+            font-size: 1.1rem;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: var(--gray-800);
+            font-size: 0.95rem;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--gray-200);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .checkbox-group label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-group span {
+            color: var(--gray-800);
+        }
+        
+        .btn {
+            background: var(--primary);
+            color: white;
+            padding: 16px 32px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        
+        #refreshDownloads {
+            margin-bottom: 20px;
+        }
+        
+        .btn:disabled {
+            background: var(--gray-300);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .status-panel {
+            background: var(--gray-100);
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 30px;
+            border-left: 4px solid var(--primary);
+        }
+        
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            color: var(--gray-800);
+        }
+        
+        .status-content {
+            color: var(--gray-600);
+            line-height: 1.6;
+        }
+        
+        .success { border-left-color: var(--success); }
+        .error { border-left-color: var(--danger); }
+        .warning { border-left-color: var(--warning); }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #fff;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--gray-200);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 16px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .download-info {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 16px;
+            align-items: center;
+            padding: 16px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--gray-200);
+            margin-top: 20px;
+        }
+        
+        .download-info i {
+            font-size: 24px;
+            color: var(--primary);
+        }
+        
+        .download-details {
+            font-size: 0.9rem;
+        }
+        
+.download-details strong {
+  color: var(--gray-800);
+}
+
+#currentFile, #downloadStats {
+  color: var(--gray-800);
+}
+
+/* Playlist container styles */
+#playlistList {
+  max-height: min(60vh, 500px);
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--gray-100);
+  transition: all 0.3s ease;
+}
+
+#playlistList:empty::before {
+  content: 'No videos loaded yet';
+  display: block;
+  text-align: center;
+  color: var(--gray-600);
+  padding: 40px 20px;
+  font-style: italic;
+}
+
+#playlistList > div {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gray-200);
+  transition: background-color 0.2s ease;
+}
+
+#playlistList > div:hover {
+  background-color: white;
+}
+
+#playlistList > div:last-child {
+  border-bottom: none;
+}
+
+#playlistList label {
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+#playlistList input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+#playlistList strong {
+  color: var(--primary);
+  margin-right: 8px;
+  font-weight: 600;
+}
+
+#playlistList small {
+  color: var(--gray-600);
+  margin-left: 8px;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding: 24px;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+  
+  #playlistList {
+    max-height: min(50vh, 400px);
+    min-height: 100px;
+  }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+<div class="header">
+<div style="position: absolute; top: 20px; right: 20px;">
+<button type="button" id="themeToggle" class="btn" style="padding: 8px 12px; font-size: 14px; background: transparent; border: 2px solid var(--primary); color: var(--primary);">
+<i class="fas fa-moon"></i> Dark Mode
+</button>
+</div>
+<h1><i class="fas fa-download"></i> Professional YouTube Downloader</h1>
+<p>Download YouTube videos with advanced options and real-time progress</p>
+<div id="videoPreview" style="display: none; margin-top: 20px; padding: 20px; background: var(--gray-100); border-radius: 12px; border: 2px dashed var(--gray-300);">
+<img id="previewThumbnail" src="" alt="Video thumbnail" style="max-width: 320px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+<div id="previewInfo" style="margin-top: 15px; text-align: left;">
+<h3 id="previewTitle" style="color: var(--gray-800); margin-bottom: 8px;"></h3>
+<p id="previewChannel" style="color: var(--gray-600); margin-bottom: 5px;"><i class="fas fa-user"></i> <span></span></p>
+<p id="previewDuration" style="color: var(--gray-600);"><i class="fas fa-clock"></i> <span></span></p>
+</div>
+</div>
+<div id="dropZone" style="margin-top: 20px; padding: 40px; border: 3px dashed var(--gray-300); border-radius: 12px; background: rgba(255,255,255,0.5); transition: all 0.3s ease; cursor: pointer;">
+<p style="color: var(--gray-600); font-size: 1.1rem; margin: 0;"><i class="fas fa-cloud-upload-alt" style="font-size: 2rem; display: block; margin-bottom: 10px;"></i>Drag & drop YouTube URL here or click to paste</p>
+</div>
+</div>
+        
+        <form id="downloadForm">
+            <div class="form-grid">
+                <div>
+                    <div class="form-group">
+                        <label for="url"><i class="fas fa-link"></i> YouTube URL:</label>
+                        <input type="text" id="url" name="url" placeholder="https://www.youtube.com/watch?v=..." required>
+                        <button type="button" id="fetchPlaylistBtn" class="btn" style="margin-top: 10px; padding: 8px 16px; font-size: 14px;">
+                            <i class="fas fa-list"></i> Load Playlist Contents
+                        </button>
+                    </div>
+                    
+<div id="playlistContainer" style="display: none; margin-bottom: 20px;">
+<div class="form-group">
+<h4 style="margin-bottom: 12px; font-weight: 600; color: var(--gray-800);"><i class="fas fa-music"></i> Select Songs to Download:</h4>
+<div id="playlistList">
+                                <div style="text-align: center; color: var(--gray-600); padding: 20px;">
+                                    <i class="fas fa-spinner fa-spin"></i> Loading playlist...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="format"><i class="fas fa-film"></i> Video Format:</label>
+                        <select id="format" name="format">
+                            <option value="bestvideo+bestaudio/best">Best Quality (Video + Audio)</option>
+                            <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]">1080p HD</option>
+                            <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p HD</option>
+                            <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
+                            <option value="bestvideo[height<=360]+bestaudio/best[height<=360]">360p</option>
+                            <option value="best">Auto (Best Available)</option>
+                            <option value="worst">Smallest File Size</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="outputTemplate"><i class="fas fa-file"></i> Output Template:</label>
+                        <input type="text" id="outputTemplate" name="outputTemplate" 
+                               placeholder="%(title)s.%(ext)s" value="%(title)s.%(ext)s">
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="checkbox-group">
+                        <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="extractAudio" name="extractAudio">
+                            <span><i class="fas fa-music"></i> Extract Audio Only</span>
+                        </label>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="audioFormat"><i class="fas fa-file-audio"></i> Audio Format:</label>
+                        <select id="audioFormat" name="audioFormat">
+                            <option value="mp3">MP3 (Most Compatible)</option>
+                            <option value="aac">AAC (Good Quality)</option>
+                            <option value="flac">FLAC (Lossless)</option>
+                            <option value="wav">WAV (Uncompressed)</option>
+                            <option value="opus">Opus (Efficient)</option>
+                            <option value="m4a">M4A (Apple)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="audioQuality"><i class="fas fa-volume-up"></i> Audio Quality (0-9):</label>
+                        <input type="number" id="audioQuality" name="audioQuality" 
+                               min="0" max="9" value="5" placeholder="5">
+                        <small style="color: var(--gray-600); font-size: 0.8rem;">0 = best, 9 = worst</small>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Options Accordion -->
+            <div style="margin: 30px 0; border-top: 2px solid var(--gray-200); padding-top: 20px;">
+                <div style="cursor: pointer;" onclick="toggleAdvancedOptions()">
+                    <h3 style="color: var(--gray-800); margin-bottom: 10px;">
+                        <i class="fas fa-cog"></i> Advanced Options 
+                        <i class="fas fa-chevron-down" id="advancedToggle" style="float: right;"></i>
+                    </h3>
+                </div>
+                
+                <div id="advancedOptions" style="display: none; margin-top: 20px;">
+                    <div class="form-grid">
+                        <div>
+<div class="form-group">
+<label for="playlistItems"><i class="fas fa-list"></i> Playlist Items:</label>
+<input type="text" id="playlistItems" name="playlistItems"
+placeholder="1,3,5-10 or leave empty for all">
+                                <small style="color: var(--gray-600); font-size: 0.8rem;">Comma-separated: 1,3,5-10</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="maxDownloads"><i class="fas fa-download"></i> Max Downloads:</label>
+                                <input type="number" id="maxDownloads" name="maxDownloads" 
+                                       min="1" placeholder="Unlimited">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" id="flatPlaylist" name="flatPlaylist">
+                                    <span><i class="fas fa-bars"></i> Flat Playlist (No Extraction)</span>
+                                </label>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" id="playlistRandom" name="playlistRandom">
+                                    <span><i class="fas fa-random"></i> Random Playlist Order</span>
+                                </label>
+                            </div>
+                            
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="writePlaylistMeta" name="writePlaylistMeta" checked>
+<span><i class="fas fa-file-alt"></i> Write Playlist Metadata</span>
+</label>
+</div>
+
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="noPlaylist" name="noPlaylist">
+<span><i class="fas fa-ban"></i> Single Video Only (No Playlist)</span>
+</label>
+</div>
+</div>
+</div>
+
+<!-- Additional Settings Section -->
+<div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--gray-200);">
+<h4 style="color: var(--gray-800); margin-bottom: 15px; font-size: 1rem;">
+<i class="fas fa-cogs"></i> Additional Settings
+</h4>
+
+<div class="form-grid">
+<div>
+<!-- Thumbnails & Metadata -->
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="embedThumbnail" name="embedThumbnail">
+<span><i class="fas fa-image"></i> Embed Thumbnail in Audio</span>
+</label>
+</div>
+
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="embedMetadata" name="embedMetadata">
+<span><i class="fas fa-tags"></i> Embed Metadata (ID3)</span>
+</label>
+</div>
+
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="writeThumbnail" name="writeThumbnail">
+<span><i class="fas fa-file-image"></i> Download Thumbnail Separately</span>
+</label>
+</div>
+
+<!-- Subtitles -->
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="writeSubs" name="writeSubs">
+<span><i class="fas fa-closed-captioning"></i> Download Subtitles</span>
+</label>
+</div>
+
+<div class="checkbox-group">
+<label>
+<input type="checkbox" id="writeAutoSubs" name="writeAutoSubs">
+<span><i class="fas fa-robot"></i> Download Auto-Generated Subs</span>
+</label>
+</div>
+
+<div class="form-group" style="margin-top: 10px;">
+<label for="subLangs"><i class="fas fa-language"></i> Subtitle Languages:</label>
+<input type="text" id="subLangs" name="subLangs" placeholder="en,es,fr" value="en">
+<small style="color: var(--gray-600); font-size: 0.8rem;">Comma-separated language codes</small>
+</div>
+</div>
+
+<div>
+<!-- Download Control -->
+<div class="form-group">
+<label for="limitRate"><i class="fas fa-tachometer-alt"></i> Speed Limit:</label>
+<input type="text" id="limitRate" name="limitRate" placeholder="e.g., 1M or 500K">
+<small style="color: var(--gray-600); font-size: 0.8rem;">e.g., 1M for 1 MB/s</small>
+</div>
+
+<div class="form-group">
+<label for="retries"><i class="fas fa-redo"></i> Retry Attempts:</label>
+<input type="number" id="retries" name="retries" min="1" max="10" value="3" placeholder="3">
+</div>
+
+<div class="form-group">
+<label for="concurrentFragments"><i class="fas fa-bolt"></i> Concurrent Fragments:</label>
+<input type="number" id="concurrentFragments" name="concurrentFragments" min="1" max="16" value="1" placeholder="1">
+<small style="color: var(--gray-600); font-size: 0.8rem;">Faster but uses more bandwidth</small>
+</div>
+
+<div class="form-group">
+<label for="ageLimit"><i class="fas fa-user-check"></i> Age Limit:</label>
+<input type="number" id="ageLimit" name="ageLimit" min="0" max="21" placeholder="No limit">
+<small style="color: var(--gray-600); font-size: 0.8rem;">Maximum age in years</small>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+            
+            <button type="submit" id="downloadBtn" class="btn">
+                <i class="fas fa-download"></i> Start Download
+            </button>
+        </form>
+        
+        <div class="download-info" id="downloadInfo" style="display: none;">
+            <i class="fas fa-spinner fa-spin"></i>
+            <div class="download-details">
+                 <strong>Current Download:</strong>
+                <div id="currentFile">Preparing download...</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div id="downloadStats">0% • 0 KB/s • --:-- remaining</div>
+            </div>
+        </div>
+        
+        <div class="status-panel" id="statusPanel" style="display: none;">
+            <div class="status-header">
+                <i class="fas fa-info-circle"></i>
+                <span id="statusTitle">Status</span>
+            </div>
+            <div class="status-content" id="statusContent"></div>
+        </div>
+        
+
+
+<!-- Lyrics Section -->
+<div id="lyricsSection" style="margin-top: 40px; border-top: 2px solid var(--gray-200); padding-top: 20px; display: none;">
+<h3 style="color: var(--gray-800); margin-bottom: 20px;">
+<i class="fas fa-music"></i> Lyrics
+<button type="button" onclick="closeLyrics()" style="margin-left: 10px; padding: 6px 12px; font-size: 12px; background: transparent; border: 1px solid var(--gray-300); color: var(--gray-600); border-radius: 4px; cursor: pointer;">
+<i class="fas fa-times"></i> Close
+</button>
+</h3>
+<div id="lyricsDisplay" style="background: var(--gray-100); border-radius: 8px; padding: 30px; min-height: 300px; max-height: 500px; overflow-y: auto; font-family: 'Georgia', serif; line-height: 1.8; font-size: 1.1rem; color: var(--gray-800); white-space: pre-wrap;">
+<div style="text-align: center; color: var(--gray-600);">
+<i class="fas fa-spinner fa-spin"></i><br>
+Loading lyrics...
+</div>
+</div>
+</div>
+
+<!-- Downloads Section -->
+<div style="margin-top: 40px; border-top: 2px solid var(--gray-200); padding-top: 20px;">
+<h3 style="color: var(--gray-800); margin-bottom: 20px;">
+<i class="fas fa-download"></i> Downloaded Files
+</h3>
+<button type="button" id="refreshDownloads" class="btn" style="margin-bottom: 20px;">
+<i class="fas fa-sync-alt"></i> Refresh File List
+</button>
+<div id="downloadsList" style="background: var(--gray-100); border-radius: 8px; padding: 20px; min-height: 100px;">
+<div style="text-align: center; color: var(--gray-600);">
+<i class="fas fa-inbox"></i><br>
+No downloads yet
+</div>
+</div>
+</div>
+</div>
+
+     <script>
+let downloadInterval;
+         let selectedVideos = [];
+         
+         function toggleAdvancedOptions() {
+             const options = document.getElementById('advancedOptions');
+             const toggleIcon = document.getElementById('advancedToggle');
+             if (options.style.display === 'none') {
+                 options.style.display = 'block';
+                 toggleIcon.className = 'fas fa-chevron-up';
+             } else {
+                 options.style.display = 'none';
+                 toggleIcon.className = 'fas fa-chevron-down';
+             }
+         }
+         
+         // Fetch playlist metadata
+         document.getElementById('fetchPlaylistBtn').addEventListener('click', async () => {
+            const url = document.getElementById('url').value;
+            const playlistContainer = document.getElementById('playlistContainer');
+            const playlistList = document.getElementById('playlistList');
+            const btn = document.getElementById('fetchPlaylistBtn');
+            
+            if (!url) {
+                alert('Please enter a YouTube URL first');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            playlistContainer.style.display = 'block';
+            playlistList.innerHTML = '<div style="text-align: center; color: var(--gray-600); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading playlist contents...</div>';
+            
+            try {
+                const response = await fetch('/playlist-metadata', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ url })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.videos) {
+                    playlistList.innerHTML = '';
+                    selectedVideos = [];
+                    
+                    data.videos.forEach((video, index) => {
+                        const checkboxId = `video-${video.id || index}`;
+                        const div = document.createElement('div');
+                        div.style.padding = '8px';
+                        div.style.borderBottom = '1px solid var(--gray-200)';
+                        div.innerHTML = `
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" value="${video.index || index + 1}" 
+                                       onchange="toggleVideoSelection(this, ${video.index || index + 1})">
+                                <span>
+                                    <strong>${video.index || index + 1}.</strong> ${video.title || 'Unknown Title'}
+                                    ${video.duration ? `<small style="color: var(--gray-600); margin-left: 8px;">(${formatDuration(video.duration)})</small>` : ''}
+                                </span>
+                            </label>
+                        `;
+                        playlistList.appendChild(div);
+                    });
+                    
+                    // Add select all/none buttons
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.style.padding = '10px';
+                    controlsDiv.style.textAlign = 'center';
+                    controlsDiv.style.borderBottom = '1px solid var(--gray-200)';
+                    controlsDiv.innerHTML = `
+                        <button type="button" onclick="selectAllVideos()" style="margin-right: 10px; padding: 4px 8px; font-size: 12px;">
+                            <i class="fas fa-check-square"></i> Select All
+                        </button>
+                        <button type="button" onclick="deselectAllVideos()" style="padding: 4px 8px; font-size: 12px;">
+                            <i class="fas fa-times-circle"></i> Deselect All
+                        </button>
+                    `;
+                    playlistList.insertBefore(controlsDiv, playlistList.firstChild);
+                    
+                } else {
+                    playlistList.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">
+                        <i class="fas fa-exclamation-triangle"></i> Failed to load playlist: ${data.error || 'Unknown error'}
+                    </div>`;
+                }
+            } catch (error) {
+                playlistList.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i> Network error: ${error.message}
+                </div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-list"></i> Load Playlist Contents';
+            }
+        });
+        
+        // Downloads functionality
+        document.getElementById('refreshDownloads').addEventListener('click', refreshDownloads);
+        
+        async function refreshDownloads() {
+            const downloadsList = document.getElementById('downloadsList');
+            const btn = document.getElementById('refreshDownloads');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            downloadsList.innerHTML = '<div style="text-align: center; color: var(--gray-600); padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Loading files...</div>';
+            
+            try {
+                const response = await fetch('/downloads');
+                const data = await response.json();
+                
+                if (response.ok && data.files && data.files.length > 0) {
+                    downloadsList.innerHTML = '';
+                    
+                    data.files.forEach(file => {
+                        const fileDiv = document.createElement('div');
+                        fileDiv.style.padding = '12px';
+                        fileDiv.style.borderBottom = '1px solid var(--gray-200)';
+                        fileDiv.style.display = 'flex';
+                        fileDiv.style.justifyContent = 'space-between';
+                        fileDiv.style.alignItems = 'center';
+                        
+                        const fileInfo = document.createElement('div');
+                         fileInfo.innerHTML = `
+                             <strong style="color: var(--gray-800);">${file.name}</strong><br>
+                             <small style="color: var(--gray-600);">
+                                 ${formatFileSize(file.size)} • 
+                                 ${new Date(file.modified * 1000).toLocaleString()}
+                             </small>
+                         `;
+                        
+// Check if this is a subtitle/lyrics file
+      const isLyricsFile = file.name.endsWith('.vtt') || file.name.endsWith('.srt') || file.name.endsWith('.lrc');
+      const isAudioFile = file.name.endsWith('.mp3') || file.name.endsWith('.m4a') || file.name.endsWith('.opus');
+      
+      const actionBtn = document.createElement('button');
+      actionBtn.className = 'btn';
+      actionBtn.style.padding = '6px 12px';
+      actionBtn.style.fontSize = '12px';
+      
+      if (isLyricsFile) {
+        actionBtn.innerHTML = '<i class="fas fa-music"></i> View';
+        actionBtn.style.background = 'var(--success)';
+        actionBtn.onclick = () => viewLyrics(file.name);
+      } else {
+        actionBtn.innerHTML = '<i class="fas fa-download"></i>';
+        actionBtn.onclick = () => downloadFile(file.name);
+      }
+
+      fileDiv.appendChild(fileInfo);
+      fileDiv.appendChild(actionBtn);
+      downloadsList.appendChild(fileDiv);
+    });
+  } else {
+                    downloadsList.innerHTML = '<div style="text-align: center; color: var(--gray-600); padding: 20px;"><i class="fas fa-inbox"></i><br>No downloads yet</div>';
+                }
+            } catch (error) {
+                downloadsList.innerHTML = `<div style="text-align: center; color: var(--danger); padding: 20px;">
+                    <i class="fas fa-exclamation-triangle"></i><br>Error loading files: ${error.message}
+                </div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh File List';
+            }
+        }
+        
+function downloadFile(filename) {
+  // Open download in new tab to avoid navigation
+  window.open(`/download-file/${encodeURIComponent(filename)}`, '_blank');
+}
+
+// Lyrics viewer
+async function viewLyrics(filename) {
+  const lyricsSection = document.getElementById('lyricsSection');
+  const lyricsDisplay = document.getElementById('lyricsDisplay');
+  
+  lyricsSection.style.display = 'block';
+  lyricsDisplay.innerHTML = '<div style="text-align: center; color: var(--gray-600);"><i class="fas fa-spinner fa-spin"></i><br>Loading lyrics...</div>';
+  
+  // Scroll to lyrics
+  lyricsSection.scrollIntoView({ behavior: 'smooth' });
+  
+  try {
+    const response = await fetch(`/download-file/${encodeURIComponent(filename)}`);
+    if (!response.ok) throw new Error('Failed to load lyrics');
+    
+    const text = await response.text();
+    const parsedLyrics = parseLyrics(text, filename);
+    
+    if (parsedLyrics) {
+      lyricsDisplay.innerHTML = parsedLyrics;
+    } else {
+      lyricsDisplay.innerHTML = `<div style="text-align: center; color: var(--gray-600);"><i class="fas fa-exclamation-triangle"></i><br>Could not parse lyrics file</div>`;
+    }
+  } catch (error) {
+    console.error('Lyrics error:', error);
+    lyricsDisplay.innerHTML = `<div style="text-align: center; color: var(--danger);"><i class="fas fa-exclamation-circle"></i><br>Error loading lyrics: ${error.message}</div>`;
+  }
+}
+
+function closeLyrics() {
+  document.getElementById('lyricsSection').style.display = 'none';
+}
+
+function parseLyrics(text, filename) {
+  if (filename.endsWith('.vtt')) {
+    return parseVTT(text);
+  } else if (filename.endsWith('.srt')) {
+    return parseSRT(text);
+  } else if (filename.endsWith('.lrc')) {
+    return parseLRC(text);
+  }
+  // Plain text
+  return escapeHtml(text);
+}
+
+function parseVTT(text) {
+  const lines = text.split('\n');
+  let lyrics = [];
+  let isHeader = true;
+  
+  for (const line of lines) {
+    if (isHeader) {
+      if (line.includes('-->')) isHeader = false;
+      continue;
+    }
+    
+    // Skip timestamp lines and empty lines
+    if (line.includes('-->') || line.trim() === '') continue;
+    
+    // Skip cue settings (like position:10%)
+    if (line.match(/^\d+:\d{2}:\d{2}\.\d{3}/)) continue;
+    
+    // Clean up the line
+    const cleanLine = line.replace(/<[^>]*>/g, '').trim();
+    if (cleanLine) {
+      lyrics.push(cleanLine);
+    }
+  }
+  
+  return lyrics.length > 0 
+    ? lyrics.join('\n\n')
+    : '<div style="text-align: center; color: var(--gray-600);">No lyrics found in file</div>';
+}
+
+function parseSRT(text) {
+  const lines = text.split('\n');
+  let lyrics = [];
+  
+  for (const line of lines) {
+    // Skip subtitle numbers
+    if (line.match(/^\d+$/)) continue;
+    // Skip timestamp lines
+    if (line.includes('-->')) continue;
+    // Skip empty lines
+    if (line.trim() === '') continue;
+    
+    const cleanLine = line.replace(/<[^>]*>/g, '').trim();
+    if (cleanLine) {
+      lyrics.push(cleanLine);
+    }
+  }
+  
+  return lyrics.length > 0 
+    ? lyrics.join('\n\n')
+    : '<div style="text-align: center; color: var(--gray-600);">No lyrics found in file</div>';
+}
+
+function parseLRC(text) {
+  const lines = text.split('\n');
+  let lyrics = [];
+  
+  for (const line of lines) {
+    // Match [mm:ss.xx] or [mm:ss:xx] format
+    const match = line.match(/^(?:\[\d{2}:\d{2}\.\d{2,3}\])+\s*(.+)$/);
+    if (match) {
+      lyrics.push(match[1].trim());
+    } else if (line.trim() && !line.startsWith('[')) {
+      // Lines without timestamps
+      lyrics.push(line.trim());
+    }
+  }
+  
+  return lyrics.length > 0 
+    ? lyrics.join('\n\n')
+    : '<div style="text-align: center; color: var(--gray-600);">No lyrics found in file</div>';
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+function formatDuration(seconds) {
+  if (!seconds) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function toggleVideoSelection(checkbox, index) {
+  if (checkbox.checked) {
+    if (!selectedVideos.includes(index)) {
+      selectedVideos.push(index);
+    }
+  } else {
+    selectedVideos = selectedVideos.filter(i => i !== index);
+  }
+  updatePlaylistItemsInput();
+}
+
+function selectAllVideos() {
+  const checkboxes = document.querySelectorAll('#playlistList input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    cb.checked = true;
+    const index = parseInt(cb.value);
+    if (!selectedVideos.includes(index)) {
+      selectedVideos.push(index);
+    }
+  });
+  updatePlaylistItemsInput();
+}
+
+function deselectAllVideos() {
+  const checkboxes = document.querySelectorAll('#playlistList input[type="checkbox"]');
+  checkboxes.forEach(cb => {
+    cb.checked = false;
+  });
+  selectedVideos = [];
+  updatePlaylistItemsInput();
+}
+
+function updatePlaylistItemsInput() {
+  const input = document.getElementById('playlistItems');
+  if (selectedVideos.length > 0) {
+    selectedVideos.sort((a, b) => a - b);
+    input.value = selectedVideos.join(',');
+  } else {
+    input.value = '';
+  }
+}
+
+// Handle download form submission
+document.getElementById('downloadForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  
+  const btn = document.getElementById('downloadBtn');
+  const downloadInfo = document.getElementById('downloadInfo');
+  const statusPanel = document.getElementById('statusPanel');
+  const progressFill = document.getElementById('progressFill');
+  const downloadStats = document.getElementById('downloadStats');
+  const currentFile = document.getElementById('currentFile');
+  const statusTitle = document.getElementById('statusTitle');
+  const statusContent = document.getElementById('statusContent');
+  
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting Download...';
+  
+  // Gather form data
+  const data = {
+    url: document.getElementById('url').value,
+    options: {
+      format: document.getElementById('format').value,
+      output_template: document.getElementById('outputTemplate').value,
+      extract_audio: document.getElementById('extractAudio').checked,
+      audio_format: document.getElementById('audioFormat').value,
+      audio_quality: document.getElementById('audioQuality').value,
+      playlist_items: selectedVideos.length > 0 ? selectedVideos.join(',') : document.getElementById('playlistItems').value,
+      max_downloads: document.getElementById('maxDownloads').value,
+      flat_playlist: document.getElementById('flatPlaylist').checked,
+      playlist_random: document.getElementById('playlistRandom').checked,
+      write_playlist_meta: document.getElementById('writePlaylistMeta').checked,
+      // New options
+      no_playlist: document.getElementById('noPlaylist').checked,
+      embed_thumbnail: document.getElementById('embedThumbnail').checked,
+      embed_metadata: document.getElementById('embedMetadata').checked,
+      write_thumbnail: document.getElementById('writeThumbnail').checked,
+      write_subs: document.getElementById('writeSubs').checked,
+      write_auto_subs: document.getElementById('writeAutoSubs').checked,
+      sub_langs: document.getElementById('subLangs').value,
+      limit_rate: document.getElementById('limitRate').value,
+      retries: document.getElementById('retries').value,
+      concurrent_fragments: document.getElementById('concurrentFragments').value,
+      age_limit: document.getElementById('ageLimit').value
+    }
+  };
+  
+  try {
+    const response = await fetch('/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      // Show download info panel
+      downloadInfo.style.display = 'flex';
+      statusPanel.style.display = 'block';
+      statusPanel.className = 'status-panel';
+      statusTitle.textContent = 'Download Started';
+      statusContent.textContent = `Session ID: ${result.session_id}`;
+      
+      // Start polling for progress
+      startProgressPolling(result.session_id);
+    } else {
+      statusPanel.style.display = 'block';
+      statusPanel.className = 'status-panel error';
+      statusTitle.textContent = 'Error';
+      statusContent.textContent = result.error || 'Failed to start download';
+    }
+  } catch (error) {
+    statusPanel.style.display = 'block';
+    statusPanel.className = 'status-panel error';
+    statusTitle.textContent = 'Error';
+    statusContent.textContent = error.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-download"></i> Start Download';
+  }
+});
+
+// Poll for download progress
+function startProgressPolling(sessionId) {
+  const downloadInfo = document.getElementById('downloadInfo');
+  const progressFill = document.getElementById('progressFill');
+  const downloadStats = document.getElementById('downloadStats');
+  const currentFile = document.getElementById('currentFile');
+  const statusPanel = document.getElementById('statusPanel');
+  const statusTitle = document.getElementById('statusTitle');
+  const statusContent = document.getElementById('statusContent');
+  
+  if (downloadInterval) {
+    clearInterval(downloadInterval);
+  }
+  
+  downloadInterval = setInterval(async () => {
+    try {
+      const response = await fetch(`/progress/${sessionId}`);
+      const data = await response.json();
+      
+      if (response.ok) {
+        progressFill.style.width = data.progress + '%';
+        
+        let statsText = `${data.progress.toFixed(1)}%`;
+        if (data.speed) statsText += ` • ${data.speed}`;
+        if (data.eta) statsText += ` • ${data.eta} remaining`;
+        downloadStats.textContent = statsText;
+        
+        if (data.filename) {
+          currentFile.textContent = data.filename;
+        }
+        
+        if (data.status === 'completed') {
+          clearInterval(downloadInterval);
+          statusPanel.className = 'status-panel success';
+          statusTitle.textContent = 'Download Complete';
+          statusContent.textContent = data.filename || 'Download finished successfully';
+          progressFill.style.width = '100%';
+          setTimeout(() => {
+            downloadInfo.style.display = 'none';
+            refreshDownloads();
+          }, 3000);
+        } else if (data.status === 'error') {
+          clearInterval(downloadInterval);
+          statusPanel.className = 'status-panel error';
+          statusTitle.textContent = 'Download Failed';
+          statusContent.textContent = data.error || 'An error occurred';
+        }
+      }
+    } catch (error) {
+      console.error('Progress polling error:', error);
+    }
+  }, 1000);
+}
+
+// Dark mode toggle
+document.getElementById('themeToggle').addEventListener('click', () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  const btn = document.getElementById('themeToggle');
+  btn.innerHTML = newTheme === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
+});
+
+// Load saved theme
+const savedTheme = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', savedTheme);
+if (savedTheme === 'dark') {
+  document.getElementById('themeToggle').innerHTML = '<i class="fas fa-sun"></i> Light Mode';
+}
+
+// Drag and drop functionality
+const dropZone = document.getElementById('dropZone');
+const urlInput = document.getElementById('url');
+
+dropZone.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  dropZone.style.borderColor = 'var(--primary)';
+  dropZone.style.background = 'rgba(37, 99, 235, 0.1)';
+});
+
+dropZone.addEventListener('dragleave', (e) => {
+  e.preventDefault();
+  dropZone.style.borderColor = 'var(--gray-300)';
+  dropZone.style.background = 'rgba(255,255,255,0.5)';
+});
+
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.style.borderColor = 'var(--gray-300)';
+  dropZone.style.background = 'rgba(255,255,255,0.5)';
+  
+  const text = e.dataTransfer.getData('text');
+  if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+    urlInput.value = text;
+    fetchVideoPreview(text);
+  }
+});
+
+dropZone.addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+      urlInput.value = text;
+      fetchVideoPreview(text);
+    }
+  } catch (err) {
+    console.log('Clipboard access denied');
+  }
+});
+
+// Fetch video preview
+async function fetchVideoPreview(url) {
+  const preview = document.getElementById('videoPreview');
+  const thumbnail = document.getElementById('previewThumbnail');
+  const title = document.getElementById('previewTitle');
+  const channel = document.getElementById('previewChannel');
+  const duration = document.getElementById('previewDuration');
+  
+  preview.style.display = 'block';
+  thumbnail.src = '';
+  thumbnail.alt = 'Loading thumbnail...';
+  title.textContent = 'Loading...';
+  channel.querySelector('span').textContent = 'Fetching video info...';
+  duration.querySelector('span').textContent = '';
+  
+  try {
+    const response = await fetch('/video-info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    
+    const data = await response.json();
+    if (response.ok && data.title) {
+      // Set thumbnail with error handling - use proxy to avoid CORS
+      if (data.thumbnail) {
+        // Encode the thumbnail URL for the proxy
+        const proxyUrl = '/thumbnail-proxy?url=' + encodeURIComponent(data.thumbnail);
+        thumbnail.src = proxyUrl;
+        thumbnail.onerror = function() {
+          this.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"%3E%3Crect width="320" height="180" fill="%23e2e8f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23647569" font-family="Arial" font-size="16"%3ENo Thumbnail%3C/text%3E%3C/svg%3E';
+          this.onerror = null;
+        };
+      } else {
+        thumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"%3E%3Crect width="320" height="180" fill="%23e2e8f0"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23647569" font-family="Arial" font-size="16"%3ENo Thumbnail%3C/text%3E%3C/svg%3E';
+      }
+      title.textContent = data.title;
+      channel.querySelector('span').textContent = data.channel || 'Unknown Channel';
+      duration.querySelector('span').textContent = data.duration ? formatDuration(data.duration) : 'Unknown Duration';
+    } else {
+      // Show error in preview
+      thumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"%3E%3Crect width="320" height="180" fill="%23fee2e2"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23dc2626" font-family="Arial" font-size="14"%3EFailed to load preview%3C/text%3E%3C/svg%3E';
+      title.textContent = 'Unable to fetch video info';
+      channel.querySelector('span').textContent = data.error || 'Please check the URL and try again';
+      duration.querySelector('span').textContent = '';
+    }
+  } catch (error) {
+    console.error('Preview error:', error);
+    thumbnail.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180"%3E%3Crect width="320" height="180" fill="%23fee2e2"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23dc2626" font-family="Arial" font-size="14"%3EError loading preview%3C/text%3E%3C/svg%3E';
+    title.textContent = 'Error loading preview';
+    channel.querySelector('span').textContent = 'Network error or server unavailable';
+    duration.querySelector('span').textContent = '';
+  }
+}
+
+// Clipboard monitoring for URLs - DISABLED to prevent automatic playlist loading
+// let lastClipboardText = '';
+// setInterval(async () => {
+//   try {
+//     const text = await navigator.clipboard.readText();
+//     if (text !== lastClipboardText && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+//       lastClipboardText = text;
+//       // Optional: Auto-fill if URL input is empty
+//       if (!urlInput.value) {
+//         urlInput.value = text;
+//         fetchVideoPreview(text);
+//       }
+//     }
+//   } catch (err) {
+//     // Clipboard access may be denied, ignore
+//   }
+// }, 2000);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  // Ctrl+D: Focus URL and start download
+  if (e.ctrlKey && e.key === 'd') {
+    e.preventDefault();
+    document.getElementById('url').focus();
+  }
+  // Ctrl+Q: Clear form
+  if (e.ctrlKey && e.key === 'q') {
+    e.preventDefault();
+    document.getElementById('downloadForm').reset();
+    document.getElementById('videoPreview').style.display = 'none';
+    document.getElementById('playlistContainer').style.display = 'none';
+  }
+  // Ctrl+Enter: Submit form
+  if (e.ctrlKey && e.key === 'Enter') {
+    e.preventDefault();
+    document.getElementById('downloadBtn').click();
+  }
+});
+
+// Sound notification helper
+function playNotification(type) {
+  const audio = new Audio();
+  audio.volume = 0.5;
+  if (type === 'success') {
+    // Simple beep for success
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 800;
+    gain.gain.value = 0.1;
+    osc.start();
+    setTimeout(() => osc.stop(), 200);
+  } else if (type === 'error') {
+    // Lower tone for error
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 300;
+    gain.gain.value = 0.1;
+    osc.start();
+    setTimeout(() => osc.stop(), 300);
+  }
+}
+
+// Enhanced URL input with auto-preview
+urlInput.addEventListener('paste', (e) => {
+  setTimeout(() => {
+    const url = urlInput.value;
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      fetchVideoPreview(url);
+    }
+  }, 100);
+});
+
+// Load downloads on page load
+document.addEventListener('DOMContentLoaded', () => {
+  refreshDownloads();
+
+  // Request notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+});
+
+
+</script>
+</body>
+</html>

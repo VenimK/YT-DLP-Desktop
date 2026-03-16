@@ -1,0 +1,175 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        architecture: ${{ matrix.arch == 'arm64' && 'arm64' || 'x64' }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Download yt-dlp
+      run: |
+        mkdir -p bin
+        if [ "${{ matrix.arch }}" = "arm64" ]; then
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o bin/yt-dlp
+        else
+          curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos_legacy -o bin/yt-dlp
+        fi
+        chmod +x bin/yt-dlp
+    
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile \
+          --add-data "templates:templates" \
+          --add-data "static:static" \
+          --add-binary "bin/yt-dlp:bin" \
+          --hidden-import yt_dlp \
+          --name yt-dlp-desktop-macos-${{ matrix.arch }} \
+          --clean \
+          app.py
+    
+    - name: Test executable
+      run: |
+        ./dist/yt-dlp-desktop-macos-${{ matrix.arch }} --version || true
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: yt-dlp-desktop-macos-${{ matrix.arch }}
+        path: dist/yt-dlp-desktop-macos-${{ matrix.arch }}
+        retention-days: 7
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Download yt-dlp
+      run: |
+        New-Item -ItemType Directory -Force -Path bin
+        Invoke-WebRequest -Uri https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile bin/yt-dlp.exe
+    
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile `
+          --add-data "templates;templates" `
+          --add-data "static;static" `
+          --add-binary "bin/yt-dlp.exe;bin" `
+          --hidden-import yt_dlp `
+          --name yt-dlp-desktop-windows-x64 `
+          --clean `
+          --windowed `
+          app.py
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: yt-dlp-desktop-windows-x64
+        path: dist/yt-dlp-desktop-windows-x64.exe
+        retention-days: 7
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ffmpeg
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Download yt-dlp
+      run: |
+        mkdir -p bin
+        curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o bin/yt-dlp
+        chmod +x bin/yt-dlp
+    
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller --onefile \
+          --add-data "templates:templates" \
+          --add-data "static:static" \
+          --add-binary "bin/yt-dlp:bin" \
+          --hidden-import yt_dlp \
+          --name yt-dlp-desktop-linux-x64 \
+          --clean \
+          app.py
+    
+    - name: Test executable
+      run: |
+        ./dist/yt-dlp-desktop-linux-x64 --version || true
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: yt-dlp-desktop-linux-x64
+        path: dist/yt-dlp-desktop-linux-x64
+        retention-days: 7
+
+  release:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/yt-dlp-desktop-macos-x64/yt-dlp-desktop-macos-x64
+          artifacts/yt-dlp-desktop-macos-arm64/yt-dlp-desktop-macos-arm64
+          artifacts/yt-dlp-desktop-windows-x64/yt-dlp-desktop-windows-x64.exe
+          artifacts/yt-dlp-desktop-linux-x64/yt-dlp-desktop-linux-x64
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

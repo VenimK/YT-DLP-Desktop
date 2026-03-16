@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT-DLP Desktop - YouTube Downloader</title>
+  
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <!-- Modular Styles -->
+  <link rel="stylesheet" href="/static/css/theme.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/animations.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header glass-card">
+      <button type="button" id="themeToggle" class="theme-toggle">
+        <i class="fas fa-moon"></i> Dark Mode
+      </button>
+      <h1><i class="fas fa-download"></i> YT-DLP Desktop</h1>
+      <p>Download YouTube videos with advanced options and real-time progress</p>
+      
+      <!-- Video Preview -->
+      <div id="videoPreview" class="preview-card">
+        <img id="previewThumbnail" class="preview-thumbnail" src="" alt="Video thumbnail">
+        <div class="preview-info">
+          <h3 id="previewTitle" class="preview-title">Loading...</h3>
+          <div class="preview-meta">
+            <span id="previewChannel"><i class="fas fa-user"></i> <span>Fetching...</span></span>
+            <span id="previewDuration"><i class="fas fa-clock"></i> <span></span></span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Drop Zone -->
+      <div id="dropZone" class="drop-zone">
+        <i class="fas fa-cloud-upload-alt"></i>
+        <p>Drag & drop YouTube URL here or click to paste</p>
+      </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Download Form -->
+      <form id="downloadForm" class="glass-card form-section">
+        <div class="form-grid">
+          <!-- Left Column -->
+          <div>
+            <!-- URL Input -->
+            <div class="form-group">
+              <label class="form-label" for="url"><i class="fas fa-link"></i> YouTube URL</label>
+              <input type="text" id="url" name="url" class="form-input" 
+                     placeholder="https://www.youtube.com/watch?v=..." required>
+              <button type="button" id="fetchPlaylistBtn" class="btn btn-sm" style="margin-top: 10px;">
+                <i class="fas fa-list"></i> Load Playlist Contents
+              </button>
+            </div>
+            
+            <!-- Playlist Container -->
+            <div id="playlistContainer" class="playlist-container">
+              <div class="playlist-header">
+                <h4><i class="fas fa-music"></i> Select Videos to Download</h4>
+              </div>
+              <div id="playlistList" class="playlist-list"></div>
+            </div>
+            
+            <!-- Video Format -->
+            <div class="form-group">
+              <label class="form-label" for="format"><i class="fas fa-film"></i> Video Format</label>
+              <select id="format" name="format" class="form-select">
+                <option value="bestvideo+bestaudio/best">Best Quality (Video + Audio)</option>
+                <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]">1080p HD</option>
+                <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p HD</option>
+                <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
+                <option value="bestvideo[height<=360]+bestaudio/best[height<=360]">360p</option>
+                <option value="best">Auto (Best Available)</option>
+                <option value="worst">Smallest File Size</option>
+              </select>
+            </div>
+            
+            <!-- Output Template -->
+            <div class="form-group">
+              <label class="form-label" for="outputTemplate"><i class="fas fa-file"></i> Output Template</label>
+              <input type="text" id="outputTemplate" name="outputTemplate" class="form-input"
+                     placeholder="%(title)s.%(ext)s" value="%(title)s.%(ext)s">
+            </div>
+          </div>
+          
+          <!-- Right Column -->
+          <div>
+            <!-- Extract Audio -->
+            <div class="checkbox-group">
+              <label>
+                <input type="checkbox" id="extractAudio" name="extractAudio">
+                <span><i class="fas fa-music"></i> Extract Audio Only</span>
+              </label>
+            </div>
+            
+            <!-- Audio Format -->
+            <div class="form-group">
+              <label class="form-label" for="audioFormat"><i class="fas fa-file-audio"></i> Audio Format</label>
+              <select id="audioFormat" name="audioFormat" class="form-select">
+                <option value="mp3">MP3 (Most Compatible)</option>
+                <option value="aac">AAC (Good Quality)</option>
+                <option value="flac">FLAC (Lossless)</option>
+                <option value="wav">WAV (Uncompressed)</option>
+                <option value="opus">Opus (Efficient)</option>
+                <option value="m4a">M4A (Apple)</option>
+              </select>
+            </div>
+            
+            <!-- Audio Quality -->
+            <div class="form-group">
+              <label class="form-label" for="audioQuality"><i class="fas fa-volume-up"></i> Audio Quality (0-9)</label>
+              <input type="number" id="audioQuality" name="audioQuality" class="form-input"
+                     min="0" max="9" value="5" placeholder="5">
+              <span class="form-help">0 = best, 9 = worst</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Advanced Options Accordion -->
+        <div style="margin-top: 20px; border-top: 2px solid var(--gray-200); padding-top: 20px;">
+          <div class="accordion-header" onclick="UI.accordion.toggle('advancedOptions')">
+            <h3><i class="fas fa-cog"></i> Advanced Options</h3>
+            <i class="fas fa-chevron-down accordion-toggle"></i>
+          </div>
+          
+          <div id="advancedOptions" class="accordion-content">
+            <div class="form-grid">
+              <!-- Left Column - Playlist Options -->
+              <div>
+                <div class="form-group">
+                  <label class="form-label" for="playlistItems"><i class="fas fa-list"></i> Playlist Items</label>
+                  <input type="text" id="playlistItems" name="playlistItems" class="form-input"
+                         placeholder="1,3,5-10 or leave empty for all">
+                  <span class="form-help">Comma-separated: 1,3,5-10</span>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="maxDownloads"><i class="fas fa-download"></i> Max Downloads</label>
+                  <input type="number" id="maxDownloads" name="maxDownloads" class="form-input"
+                         min="1" placeholder="Unlimited">
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="flatPlaylist" name="flatPlaylist">
+                    <span><i class="fas fa-bars"></i> Flat Playlist (No Extraction)</span>
+                  </label>
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="playlistRandom" name="playlistRandom">
+                    <span><i class="fas fa-random"></i> Random Playlist Order</span>
+                  </label>
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="writePlaylistMeta" name="writePlaylistMeta" checked>
+                    <span><i class="fas fa-file-alt"></i> Write Playlist Metadata</span>
+                  </label>
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="noPlaylist" name="noPlaylist">
+                    <span><i class="fas fa-ban"></i> Single Video Only (No Playlist)</span>
+                  </label>
+                </div>
+              </div>
+              
+              <!-- Right Column - Additional Settings -->
+              <div>
+                <!-- Thumbnails & Metadata -->
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="embedThumbnail" name="embedThumbnail">
+                    <span><i class="fas fa-image"></i> Embed Thumbnail in Audio</span>
+                  </label>
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="embedMetadata" name="embedMetadata">
+                    <span><i class="fas fa-tags"></i> Embed Metadata (ID3)</span>
+                  </label>
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="writeThumbnail" name="writeThumbnail">
+                    <span><i class="fas fa-file-image"></i> Download Thumbnail Separately</span>
+                  </label>
+                </div>
+                
+                <!-- Subtitles -->
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="writeSubs" name="writeSubs">
+                    <span><i class="fas fa-closed-captioning"></i> Download Subtitles</span>
+                  </label>
+                </div>
+                
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="writeAutoSubs" name="writeAutoSubs">
+                    <span><i class="fas fa-robot"></i> Download Auto-Generated Subs</span>
+                  </label>
+                </div>
+                
+                <div class="form-group" style="margin-top: 10px;">
+                  <label class="form-label" for="subLangs"><i class="fas fa-language"></i> Subtitle Languages</label>
+                  <input type="text" id="subLangs" name="subLangs" class="form-input"
+                         placeholder="en,es,fr" value="en">
+                  <span class="form-help">Comma-separated language codes</span>
+                </div>
+                
+                <!-- Download Control -->
+                <div class="form-group">
+                  <label class="form-label" for="limitRate"><i class="fas fa-tachometer-alt"></i> Speed Limit</label>
+                  <input type="text" id="limitRate" name="limitRate" class="form-input"
+                         placeholder="e.g., 1M or 500K">
+                  <span class="form-help">e.g., 1M for 1 MB/s</span>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="retries"><i class="fas fa-redo"></i> Retry Attempts</label>
+                  <input type="number" id="retries" name="retries" class="form-input"
+                         min="1" max="10" value="3">
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="concurrentFragments"><i class="fas fa-bolt"></i> Concurrent Fragments</label>
+                  <input type="number" id="concurrentFragments" name="concurrentFragments" class="form-input"
+                         min="1" max="16" value="1">
+                  <span class="form-help">Faster but uses more bandwidth</span>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label" for="ageLimit"><i class="fas fa-user-check"></i> Age Limit</label>
+                  <input type="number" id="ageLimit" name="ageLimit" class="form-input"
+                         min="0" max="21" placeholder="No limit">
+                  <span class="form-help">Maximum age in years</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Submit Button -->
+        <button type="submit" id="downloadBtn" class="btn btn-lg" style="width: 100%; margin-top: 30px;">
+          <i class="fas fa-download"></i> Start Download
+        </button>
+      </form>
+      
+      <!-- Active Downloads Queue -->
+      <div id="activeDownloads" style="display: none;"></div>
+      
+      <!-- Lyrics Section -->
+      <div id="lyricsSection" class="lyrics-section">
+        <div class="glass-card">
+          <div class="lyrics-header">
+            <h3><i class="fas fa-music"></i> Lyrics</h3>
+            <button type="button" id="closeLyricsBtn" class="btn btn-secondary btn-sm">
+              <i class="fas fa-times"></i> Close
+            </button>
+          </div>
+          <div id="lyricsDisplay" class="lyrics-display"></div>
+        </div>
+      </div>
+      
+      <!-- Downloads Section -->
+      <div class="downloads-section">
+        <div class="glass-card form-section">
+          <div class="downloads-header">
+            <h3><i class="fas fa-download"></i> Downloaded Files</h3>
+            <button type="button" id="refreshDownloads" class="btn btn-sm">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+          <div id="downloadsList" class="downloads-list">
+            <div class="empty-state">
+              <i class="fas fa-inbox"></i>
+              <p>No downloads yet</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Scripts -->
+  <script src="/static/js/utils.js"></script>
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/ui.js"></script>
+  <script src="/static/js/playlist.js"></script>
+  <script src="/static/js/lyrics.js"></script>
+  <script src="/static/js/downloads.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
