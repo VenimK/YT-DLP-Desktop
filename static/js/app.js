@@ -40,15 +40,52 @@ const App = {
     // Extract audio toggle - disable/enable video format
     const extractAudioCheckbox = document.getElementById('extractAudio');
     const formatSelect = document.getElementById('format');
+    const audioFormatSelect = document.getElementById('audioFormat');
+    const audioQualityInput = document.getElementById('audioQuality');
+    
     if (extractAudioCheckbox && formatSelect) {
+      // Restore saved audio preferences
+      const savedExtractAudio = Utils.storage.get('extractAudio', false);
+      const savedAudioFormat = Utils.storage.get('audioFormat', 'mp3');
+      const savedAudioQuality = Utils.storage.get('audioQuality', '5');
+      
+      extractAudioCheckbox.checked = savedExtractAudio;
+      if (audioFormatSelect) audioFormatSelect.value = savedAudioFormat;
+      if (audioQualityInput) audioQualityInput.value = savedAudioQuality;
+      
+      // Apply initial state
+      formatSelect.disabled = savedExtractAudio;
+      if (savedExtractAudio) {
+        formatSelect.value = 'bestaudio/best';
+      }
+      
       extractAudioCheckbox.addEventListener('change', (e) => {
-        formatSelect.disabled = e.target.checked;
-        if (e.target.checked) {
+        const isChecked = e.target.checked;
+        formatSelect.disabled = isChecked;
+        
+        // Save preference
+        Utils.storage.set('extractAudio', isChecked);
+        
+        if (isChecked) {
           formatSelect.dataset.previousValue = formatSelect.value;
           formatSelect.value = 'bestaudio/best';
         } else {
           formatSelect.value = formatSelect.dataset.previousValue || 'bestvideo+bestaudio/best';
         }
+      });
+    }
+    
+    // Save audio format preference
+    if (audioFormatSelect) {
+      audioFormatSelect.addEventListener('change', (e) => {
+        Utils.storage.set('audioFormat', e.target.value);
+      });
+    }
+    
+    // Save audio quality preference
+    if (audioQualityInput) {
+      audioQualityInput.addEventListener('change', (e) => {
+        Utils.storage.set('audioQuality', e.target.value);
       });
     }
     
