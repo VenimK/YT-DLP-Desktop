@@ -26,12 +26,41 @@
       
       <!-- Video Preview -->
       <div id="videoPreview" class="preview-card">
-        <img id="previewThumbnail" class="preview-thumbnail" src="" alt="Video thumbnail">
-        <div class="preview-info">
-          <h3 id="previewTitle" class="preview-title">Loading...</h3>
-          <div class="preview-meta">
-            <span id="previewChannel"><i class="fas fa-user"></i> <span>Fetching...</span></span>
-            <span id="previewDuration"><i class="fas fa-clock"></i> <span></span></span>
+        <!-- Loading State -->
+        <div id="previewLoading" class="preview-loading" style="display: none;">
+          <div class="spinner"></div>
+          <p>Analyzing video...</p>
+        </div>
+        
+        <!-- Content State -->
+        <div id="previewContent" class="preview-content">
+          <div class="preview-layout">
+            <img id="previewThumbnail" class="preview-thumbnail" src="" alt="Video thumbnail">
+            <div class="preview-details">
+              <h3 id="previewTitle" class="preview-title">Loading...</h3>
+              <div class="preview-meta-grid">
+                <span id="previewChannel" class="preview-meta-item">
+                  <i class="fas fa-user"></i> <span>Fetching...</span>
+                </span>
+                <span id="previewDuration" class="preview-meta-item">
+                  <i class="fas fa-clock"></i> <span></span>
+                </span>
+                <span id="previewViews" class="preview-meta-item" style="display: none;">
+                  <i class="fas fa-eye"></i> <span></span>
+                </span>
+                <span id="previewLikes" class="preview-meta-item" style="display: none;">
+                  <i class="fas fa-thumbs-up"></i> <span></span>
+                </span>
+                <span id="previewDate" class="preview-meta-item" style="display: none;">
+                  <i class="fas fa-calendar"></i> <span></span>
+                </span>
+              </div>
+              <div id="previewDescription" class="preview-description" style="display: none;"></div>
+              <div id="previewFormats" class="preview-formats" style="display: none;">
+                <span class="preview-formats-label"><i class="fas fa-video"></i> Available qualities:</span>
+                <span id="previewFormatsList" class="preview-formats-list"></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

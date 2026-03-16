@@ -391,13 +391,41 @@ def get_video_info():
                         # Sort by preference or get last one (usually highest res)
                         thumbnail = thumbnails[-1].get('url') if isinstance(thumbnails, list) else thumbnails
                 
+                # Get available formats for quality selection
+                formats = []
+                if video_data.get('formats'):
+                    seen_heights = set()
+                    for f in video_data['formats']:
+                        if f.get('vcodec') != 'none' and f.get('height'):
+                            height = f.get('height')
+                            if height not in seen_heights:
+                                seen_heights.add(height)
+                                formats.append({
+                                    'height': height,
+                                    'ext': f.get('ext', 'mp4'),
+                                    'format_id': f.get('format_id')
+                                })
+                    # Sort by height descending
+                    formats = sorted(formats, key=lambda x: x['height'], reverse=True)[:5]
+                
+                # Get upload date formatted
+                upload_date = video_data.get('upload_date')
+                if upload_date and len(upload_date) == 8:
+                    upload_date = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+                
                 return jsonify({
                     'id': video_data.get('id'),
                     'title': video_data.get('title'),
                     'channel': video_data.get('channel') or video_data.get('uploader') or video_data.get('uploader_id'),
+                    'channel_url': video_data.get('channel_url'),
                     'duration': video_data.get('duration'),
                     'thumbnail': thumbnail,
-                    'description': video_data.get('description', '')[:200] + '...' if video_data.get('description') else None
+                    'description': video_data.get('description', '')[:300] + '...' if video_data.get('description') else None,
+                    'view_count': video_data.get('view_count'),
+                    'like_count': video_data.get('like_count'),
+                    'upload_date': upload_date,
+                    'formats': formats,
+                    'original_url': video_data.get('webpage_url') or url
                 })
             except json.JSONDecodeError as e:
                 return jsonify({'error': f'Failed to parse video data: {str(e)}'}), 500

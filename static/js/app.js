@@ -183,24 +183,29 @@ const App = {
   // Fetch video preview
   async fetchVideoPreview(url) {
     const previewCard = document.getElementById('videoPreview');
+    const previewLoading = document.getElementById('previewLoading');
+    const previewContent = document.getElementById('previewContent');
+    
     if (!previewCard) return;
     
+    // Show card and loading state
     previewCard.classList.add('visible');
-    
-    // Show loading state
-    document.getElementById('previewThumbnail').src = '';
-    document.getElementById('previewTitle').textContent = 'Loading...';
-    document.getElementById('previewChannel').querySelector('span').textContent = 'Fetching video info...';
-    document.getElementById('previewDuration').querySelector('span').textContent = '';
+    if (previewLoading) previewLoading.style.display = 'flex';
+    if (previewContent) previewContent.style.display = 'none';
     
     try {
       const data = await API.getVideoInfo(url);
+      
+      // Hide loading, show content
+      if (previewLoading) previewLoading.style.display = 'none';
+      if (previewContent) previewContent.style.display = 'block';
       
       if (data.title) {
         // Set thumbnail
         const thumbnail = document.getElementById('previewThumbnail');
         if (data.thumbnail) {
           thumbnail.src = API.getThumbnailUrl(data.thumbnail);
+          thumbnail.onload = () => thumbnail.classList.add('loaded');
           thumbnail.onerror = () => {
             thumbnail.src = this.getPlaceholderImage('No Thumbnail');
           };
@@ -208,25 +213,123 @@ const App = {
           thumbnail.src = this.getPlaceholderImage('No Thumbnail');
         }
         
-        // Set info
+        // Set title
         document.getElementById('previewTitle').textContent = data.title;
-        document.getElementById('previewChannel').querySelector('span').textContent = data.channel || 'Unknown Channel';
-        document.getElementById('previewDuration').querySelector('span').textContent = data.duration ? Utils.formatDuration(data.duration) : '';
+        
+        // Set channel with link if available
+        const channelEl = document.getElementById('previewChannel');
+        if (data.channel) {
+          channelEl.querySelector('span').textContent = data.channel;
+          channelEl.style.display = 'inline-flex';
+        } else {
+          channelEl.style.display = 'none';
+        }
+        
+        // Set duration
+        const durationEl = document.getElementById('previewDuration');
+        if (data.duration) {
+          durationEl.querySelector('span').textContent = Utils.formatDuration(data.duration);
+          durationEl.style.display = 'inline-flex';
+        } else {
+          durationEl.style.display = 'none';
+        }
+        
+        // Set view count
+        const viewsEl = document.getElementById('previewViews');
+        if (data.view_count) {
+          viewsEl.querySelector('span').textContent = this.formatNumber(data.view_count) + ' views';
+          viewsEl.style.display = 'inline-flex';
+        } else {
+          viewsEl.style.display = 'none';
+        }
+        
+        // Set like count
+        const likesEl = document.getElementById('previewLikes');
+        if (data.like_count) {
+          likesEl.querySelector('span').textContent = this.formatNumber(data.like_count) + ' likes';
+          likesEl.style.display = 'inline-flex';
+        } else {
+          likesEl.style.display = 'none';
+        }
+        
+        // Set upload date
+        const dateEl = document.getElementById('previewDate');
+        if (data.upload_date) {
+          dateEl.querySelector('span').textContent = data.upload_date;
+          dateEl.style.display = 'inline-flex';
+        } else {
+          dateEl.style.display = 'none';
+        }
+        
+        // Set description
+        const descEl = document.getElementById('previewDescription');
+        if (data.description) {
+          descEl.textContent = data.description;
+          descEl.style.display = 'block';
+        } else {
+          descEl.style.display = 'none';
+        }
+        
+        // Set available formats
+        const formatsEl = document.getElementById('previewFormats');
+        const formatsListEl = document.getElementById('previewFormatsList');
+        if (data.formats && data.formats.length > 0) {
+          formatsListEl.innerHTML = data.formats.map(f => {
+            let badgeClass = '';
+            if (f.height >= 2160) badgeClass = 'uhd';
+            else if (f.height >= 1080) badgeClass = 'hd';
+            return `<span class="preview-format-badge ${badgeClass}">${f.height}p</span>`;
+          }).join('');
+          formatsEl.style.display = 'block';
+        } else {
+          formatsEl.style.display = 'none';
+        }
+        
       } else {
         this.showPreviewError(data.error || 'Failed to load preview');
       }
     } catch (error) {
+      if (previewLoading) previewLoading.style.display = 'none';
+      if (previewContent) previewContent.style.display = 'block';
       this.showPreviewError('Error loading preview');
     }
   },
   
   // Show preview error
   showPreviewError(message) {
+    const previewLoading = document.getElementById('previewLoading');
+    const previewContent = document.getElementById('previewContent');
+    
+    if (previewLoading) previewLoading.style.display = 'none';
+    if (previewContent) previewContent.style.display = 'block';
+    
     const thumbnail = document.getElementById('previewThumbnail');
     thumbnail.src = this.getPlaceholderImage('Error', true);
     document.getElementById('previewTitle').textContent = 'Unable to load preview';
-    document.getElementById('previewChannel').querySelector('span').textContent = message;
-    document.getElementById('previewDuration').querySelector('span').textContent = '';
+    
+    const channelEl = document.getElementById('previewChannel');
+    channelEl.querySelector('span').textContent = message;
+    channelEl.style.display = 'inline-flex';
+    
+    // Hide other metadata
+    ['previewDuration', 'previewViews', 'previewLikes', 'previewDate', 'previewDescription', 'previewFormats'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  },
+  
+  // Format large numbers (e.g., 1234567 -> 1.2M)
+  formatNumber(num) {
+    if (num >= 1000000000) {
+      return (num / 1000000000).toFixed(1) + 'B';
+    }
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
   },
   
   // Get placeholder SVG image
