@@ -467,21 +467,50 @@ def thumbnail_proxy():
         return jsonify({'error': 'URL parameter required'}), 400
     
     try:
-        # Fetch the thumbnail
-        req = urllib.request.Request(thumbnail_url, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        })
-        with urllib.request.urlopen(req, timeout=10) as response:
-            data = response.read()
-            content_type = response.headers.get('Content-Type', 'image/jpeg')
-            
-        return send_file(
-            io.BytesIO(data),
-            mimetype=content_type,
-            as_attachment=False
-        )
+        # For YouTube thumbnails, try to get a better format
+        if 'i.ytimg.com' in thumbnail_url:
+            # Try hqdefault first if maxres fails
+            if 'maxresdefault' in thumbnail_url:
+                fallback_url = thumbnail_url.replace('maxresdefault', 'hqdefault')
+            else:
+                fallback_url = None
+        else:
+            fallback_url = None
+        
+        # Try main URL first
+        urls_to_try = [thumbnail_url]
+        if fallback_url:
+            urls_to_try.append(fallback_url)
+        
+        for url in urls_to_try:
+            try:
+                # Fetch the thumbnail with proper headers
+                req = urllib.request.Request(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': 'https://www.youtube.com/'
+                })
+                
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    data = response.read()
+                    content_type = response.headers.get('Content-Type', 'image/jpeg')
+                    
+                return send_file(
+                    io.BytesIO(data),
+                    mimetype=content_type,
+                    as_attachment=False
+                )
+            except urllib.error.HTTPError as e:
+                # If 404 on first URL, try fallback
+                if e.code == 404 and url == thumbnail_url and fallback_url:
+                    continue
+                raise
+                
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        print(f"Thumbnail proxy error: {e}")
+        # Return a redirect to the original URL as fallback
+        return redirect(thumbnail_url, code=302)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
