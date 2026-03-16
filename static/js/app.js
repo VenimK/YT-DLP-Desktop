@@ -196,25 +196,27 @@ const App = {
     try {
       const data = await API.getVideoInfo(url);
       
-      // Hide loading, show content
-      if (previewLoading) previewLoading.style.display = 'none';
-      if (previewContent) previewContent.style.display = 'block';
-      
       if (data.title) {
-        // Set thumbnail
+        // Hide loading, show content first (so thumbnail loads properly)
+        if (previewLoading) previewLoading.style.display = 'none';
+        if (previewContent) previewContent.style.display = 'block';
+        
+        // Set thumbnail (after content is visible)
         const thumbnail = document.getElementById('previewThumbnail');
         if (data.thumbnail) {
-          thumbnail.src = API.getThumbnailUrl(data.thumbnail);
-          thumbnail.onload = () => thumbnail.classList.add('loaded');
-          thumbnail.onerror = () => {
+          // Preload image before setting src to avoid broken image icon
+          const img = new Image();
+          img.onload = () => {
+            thumbnail.src = img.src;
+            thumbnail.classList.add('loaded');
+          };
+          img.onerror = () => {
             thumbnail.src = this.getPlaceholderImage('No Thumbnail');
           };
+          img.src = API.getThumbnailUrl(data.thumbnail);
         } else {
           thumbnail.src = this.getPlaceholderImage('No Thumbnail');
         }
-        
-        // Set title
-        document.getElementById('previewTitle').textContent = data.title;
         
         // Set channel with link if available
         const channelEl = document.getElementById('previewChannel');
