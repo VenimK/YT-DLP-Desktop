@@ -50,9 +50,10 @@ jobs:
           --clean \
           app.py
     
-    - name: Test executable
+    - name: Verify executable exists
       run: |
-        ./dist/yt-dlp-desktop-macos-${{ matrix.arch }} --version || true
+        ls -lh dist/yt-dlp-desktop-macos-${{ matrix.arch }}
+        file dist/yt-dlp-desktop-macos-${{ matrix.arch }}
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -139,9 +140,10 @@ jobs:
           --clean \
           app.py
     
-    - name: Test executable
+    - name: Verify executable exists
       run: |
-        ./dist/yt-dlp-desktop-linux-x64 --version || true
+        ls -lh dist/yt-dlp-desktop-linux-x64
+        file dist/yt-dlp-desktop-linux-x64
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
