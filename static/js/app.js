@@ -44,8 +44,9 @@ const App = {
     const audioQualityInput = document.getElementById('audioQuality');
     
     if (extractAudioCheckbox && formatSelect) {
-      // Restore saved audio preferences
+      // Restore saved preferences
       const savedExtractAudio = Utils.storage.get('extractAudio', false);
+      const savedVideoFormat = Utils.storage.get('videoFormat', 'bestvideo+bestaudio/best');
       const savedAudioFormat = Utils.storage.get('audioFormat', 'mp3');
       const savedAudioQuality = Utils.storage.get('audioQuality', '5');
       
@@ -53,10 +54,13 @@ const App = {
       if (audioFormatSelect) audioFormatSelect.value = savedAudioFormat;
       if (audioQualityInput) audioQualityInput.value = savedAudioQuality;
       
-      // Apply initial state
+      // Apply video format (or audio-only if extract audio is checked)
       formatSelect.disabled = savedExtractAudio;
       if (savedExtractAudio) {
         formatSelect.value = 'bestaudio/best';
+        formatSelect.dataset.previousValue = savedVideoFormat;
+      } else {
+        formatSelect.value = savedVideoFormat;
       }
       
       extractAudioCheckbox.addEventListener('change', (e) => {
@@ -67,10 +71,21 @@ const App = {
         Utils.storage.set('extractAudio', isChecked);
         
         if (isChecked) {
+          // Save current video format before switching to audio
+          Utils.storage.set('videoFormat', formatSelect.value);
           formatSelect.dataset.previousValue = formatSelect.value;
           formatSelect.value = 'bestaudio/best';
         } else {
-          formatSelect.value = formatSelect.dataset.previousValue || 'bestvideo+bestaudio/best';
+          // Restore previous video format
+          const previousFormat = formatSelect.dataset.previousValue || Utils.storage.get('videoFormat', 'bestvideo+bestaudio/best');
+          formatSelect.value = previousFormat;
+        }
+      });
+      
+      // Save video format when changed
+      formatSelect.addEventListener('change', (e) => {
+        if (!extractAudioCheckbox.checked) {
+          Utils.storage.set('videoFormat', e.target.value);
         }
       });
     }
@@ -94,7 +109,7 @@ const App = {
     if (urlInput) {
       urlInput.addEventListener('input', Utils.debounce((e) => {
         const url = e.target.value;
-        if (url && (url.includes('youtube.com') || url.includes('youtu.be'))) {
+        if (url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('music.youtube.com'))) {
           this.fetchVideoPreview(url);
         }
       }, 500));
