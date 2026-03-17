@@ -61,7 +61,10 @@ const Downloads = {
       limit_rate: document.getElementById('limitRate').value,
       retries: document.getElementById('retries').value,
       concurrent_fragments: document.getElementById('concurrentFragments').value,
-      age_limit: document.getElementById('ageLimit').value
+      age_limit: document.getElementById('ageLimit').value,
+      sponsorblock: document.getElementById('sponsorblock')?.checked || false,
+      split_chapters: document.getElementById('splitChapters')?.checked || false,
+      normalize_audio: document.getElementById('normalizeAudio')?.checked || false
     };
     
     UI.loading.show('downloadBtn', 'Starting...');
@@ -424,6 +427,13 @@ const Downloads = {
       actionButtons = `<button class="btn btn-success btn-sm action-view">
         <i class="fas fa-eye"></i> View
       </button>`;
+    } else if (isAudio) {
+      actionButtons = `<button class="btn btn-sm action-play" title="Play in built-in player">
+        <i class="fas fa-play"></i>
+      </button>
+      <button class="btn btn-sm action-download">
+        <i class="fas fa-download"></i>
+      </button>`;
     } else {
       actionButtons = `<button class="btn btn-sm action-download">
         <i class="fas fa-download"></i> Download
@@ -461,6 +471,11 @@ const Downloads = {
     const downloadBtn = div.querySelector('.action-download');
     if (downloadBtn) {
       downloadBtn.addEventListener('click', () => API.downloadFile(file.name));
+    }
+    
+    const playBtn = div.querySelector('.action-play');
+    if (playBtn) {
+      playBtn.addEventListener('click', () => Player.play(file.name));
     }
     
     return div;

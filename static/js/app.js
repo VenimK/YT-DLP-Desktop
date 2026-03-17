@@ -25,6 +25,9 @@ const App = {
   initModules() {
     Playlist.init();
     Downloads.init();
+    Search.init();
+    Presets.init();
+    Player.init();
     this.initVideoPreview();
     this.initDragDrop();
   },

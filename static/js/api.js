@@ -102,6 +102,20 @@ const API = {
     });
   },
   
+  // Search YouTube
+  async searchYouTube(query, maxResults = 10) {
+    return this.fetch('/search', {
+      method: 'POST',
+      body: JSON.stringify({ query, max_results: maxResults }),
+    });
+  },
+  
+  // Get stream URL for built-in player
+  getStreamUrl(filename) {
+    const encoded = encodeURIComponent(filename).replace(/%2F/g, '/');
+    return `${this.baseUrl}/stream/${encoded}`;
+  },
+  
   // Get current server port from window.location
   getCurrentPort() {
     return window.location.port || (window.location.protocol === 'https:' ? 443 : 80);

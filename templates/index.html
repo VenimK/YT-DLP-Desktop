@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="/static/css/layout.css">
   <link rel="stylesheet" href="/static/css/animations.css">
   <link rel="stylesheet" href="/static/css/modal.css">
+  <link rel="stylesheet" href="/static/css/features.css">
 </head>
 <body>
   <div class="app-container">
@@ -71,12 +72,28 @@
         <i class="fas fa-cloud-upload-alt"></i>
         <p>Drag & drop YouTube URL here or click to paste</p>
       </div>
+      
+      <!-- YouTube Search -->
+      <div class="search-section">
+        <div class="search-bar">
+          <input type="text" id="searchInput" placeholder="Search YouTube..." autocomplete="off">
+          <button type="button" id="searchClear" class="search-clear" style="display:none;"><i class="fas fa-times"></i></button>
+          <button type="button" id="searchBtn" class="btn btn-sm"><i class="fas fa-search"></i> Search</button>
+        </div>
+        <div id="searchResults"></div>
+      </div>
     </header>
     
     <!-- Main Content -->
     <main class="app-main">
       <!-- Download Form -->
       <form id="downloadForm" class="glass-card form-section">
+        <!-- Download Presets -->
+        <div class="presets-section">
+          <span class="presets-label"><i class="fas fa-bolt"></i> Quick Presets</span>
+          <div id="presetsContainer"></div>
+        </div>
+        
         <div class="form-grid">
           <!-- Left Column -->
           <div>
@@ -266,6 +283,30 @@
                   <span class="form-help">e.g., 1M for 1 MB/s</span>
                 </div>
                 
+                <!-- SponsorBlock -->
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="sponsorblock" name="sponsorblock">
+                    <span><i class="fas fa-cut"></i> Remove Sponsors (SponsorBlock)</span>
+                  </label>
+                </div>
+                
+                <!-- Chapter Splitting -->
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="splitChapters" name="splitChapters">
+                    <span><i class="fas fa-stream"></i> Split by Chapters</span>
+                  </label>
+                </div>
+                
+                <!-- Audio Normalization -->
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="normalizeAudio" name="normalizeAudio">
+                    <span><i class="fas fa-balance-scale"></i> Normalize Audio Volume</span>
+                  </label>
+                </div>
+                
                 <div class="form-group">
                   <label class="form-label" for="retries"><i class="fas fa-redo"></i> Retry Attempts</label>
                   <input type="number" id="retries" name="retries" class="form-input"
@@ -438,10 +479,43 @@
     </div>
   </div>
 
+  <!-- Audio Player Bar -->
+  <div id="playerBar">
+    <div class="player-inner">
+      <div class="player-controls">
+        <button type="button" id="playerPlayBtn" class="player-play-btn" title="Play/Pause">
+          <i class="fas fa-play"></i>
+        </button>
+      </div>
+      <div class="player-track-info">
+        <div id="playerTitle" class="player-title">No track</div>
+        <div class="player-time-info">
+          <span id="playerTime">0:00</span> / <span id="playerDuration">0:00</span>
+        </div>
+      </div>
+      <div class="player-seek-section">
+        <div class="player-canvas-wrap">
+          <canvas id="playerCanvas"></canvas>
+        </div>
+        <input type="range" id="playerSeek" class="player-seek" min="0" max="100" value="0">
+      </div>
+      <div class="player-volume-section">
+        <i class="fas fa-volume-up"></i>
+        <input type="range" id="playerVolume" class="player-volume" min="0" max="100" value="80">
+      </div>
+      <button type="button" id="playerCloseBtn" class="player-close-btn" title="Close player">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="/static/js/utils.js"></script>
   <script src="/static/js/api.js"></script>
   <script src="/static/js/ui.js"></script>
+  <script src="/static/js/search.js"></script>
+  <script src="/static/js/presets.js"></script>
+  <script src="/static/js/player.js"></script>
   <script src="/static/js/playlist.js"></script>
   <script src="/static/js/lyrics.js"></script>
   <script src="/static/js/downloads.js"></script>

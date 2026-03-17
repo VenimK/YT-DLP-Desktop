@@ -83,6 +83,72 @@ def parse_yt_dlp_progress(line):
 def index():
     return render_template('index.html')
 
+@app.route('/search', methods=['POST'])
+def search_youtube():
+    """Search YouTube via yt-dlp"""
+    data = request.json
+    query = data.get('query', '').strip()
+    max_results = min(int(data.get('max_results', 10)), 20)
+    
+    if not query:
+        return jsonify({'error': 'Query is required'}), 400
+    
+    cmd = ['yt-dlp', '--dump-json', '--flat-playlist', '--no-download',
+           f'ytsearch{max_results}:{query}']
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode != 0:
+            return jsonify({'error': 'Search failed', 'details': result.stderr[:200]}), 500
+        
+        results = []
+        for line in result.stdout.strip().split('\n'):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+                results.append({
+                    'id': item.get('id'),
+                    'title': item.get('title'),
+                    'channel': item.get('channel') or item.get('uploader'),
+                    'duration': item.get('duration'),
+                    'view_count': item.get('view_count'),
+                    'thumbnail': f"https://i.ytimg.com/vi/{item.get('id')}/mqdefault.jpg" if item.get('id') else None,
+                    'url': item.get('url') or item.get('webpage_url') or f"https://www.youtube.com/watch?v={item.get('id')}"
+                })
+            except json.JSONDecodeError:
+                continue
+        
+        return jsonify({'results': results})
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Search timed out'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/stream/<path:filename>')
+def stream_file(filename):
+    """Stream an audio/video file for the built-in player"""
+    import urllib.parse
+    
+    if '%' in filename:
+        filename = urllib.parse.unquote(filename)
+    
+    if filename.startswith('/') or '\\' in filename:
+        return jsonify({'error': 'Invalid filename'}), 400
+    
+    file_path = os.path.join('.', filename)
+    resolved = os.path.realpath(file_path)
+    cwd = os.path.realpath('.')
+    
+    if not resolved.startswith(cwd + os.sep) and resolved != cwd:
+        return jsonify({'error': 'Invalid filename'}), 400
+    
+    if not os.path.exists(resolved):
+        return jsonify({'error': 'File not found'}), 404
+    
+    return send_file(resolved, conditional=True)
+
 @app.route('/download', methods=['POST'])
 def download():
     data = request.json
@@ -165,6 +231,19 @@ def download():
     # No playlist option
     if options.get('no_playlist', False):
         cmd.append('--no-playlist')
+
+    # SponsorBlock - remove sponsor segments
+    if options.get('sponsorblock', False):
+        categories = options.get('sponsorblock_categories', 'sponsor,selfpromo,interaction,intro,outro')
+        cmd.extend(['--sponsorblock-remove', categories])
+
+    # Chapter splitting
+    if options.get('split_chapters', False):
+        cmd.append('--split-chapters')
+
+    # Audio normalization via ffmpeg loudnorm
+    if options.get('normalize_audio', False):
+        cmd.extend(['--postprocessor-args', 'ffmpeg:-af loudnorm=I=-16:TP=-1.5:LRA=11'])
 
     cmd.append(url)
     
