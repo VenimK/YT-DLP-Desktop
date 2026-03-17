@@ -34,6 +34,35 @@ def cleanup_old_downloads():
         download_processes.pop(session_id, None)
         print(f"Cleaned up download session: {session_id}")
 
+def cleanup_video_files_after_audio_extraction(output_template=None):
+    """Remove original video files after successful audio extraction"""
+    video_extensions = ['.mp4', '.webm', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
+    
+    try:
+        for filename in os.listdir('.'):
+            # Check if file has video extension
+            if any(filename.lower().endswith(ext) for ext in video_extensions):
+                # Check if corresponding audio file exists
+                base_name = os.path.splitext(filename)[0]
+                audio_extensions = ['.mp3', '.m4a', '.flac', '.wav', '.opus', '.aac', '.ogg']
+                
+                # Look for matching audio file
+                audio_file_exists = False
+                for audio_ext in audio_extensions:
+                    if os.path.exists(base_name + audio_ext):
+                        audio_file_exists = True
+                        break
+                
+                # Remove video file if audio file exists
+                if audio_file_exists:
+                    try:
+                        os.remove(filename)
+                        print(f"[CLEANUP] Removed original video file: {filename}")
+                    except Exception as e:
+                        print(f"[CLEANUP] Failed to remove {filename}: {e}")
+    except Exception as e:
+        print(f"[CLEANUP] Error during cleanup: {e}")
+
 def parse_yt_dlp_progress(line):
     """Parse yt-dlp progress output"""
     patterns = [
@@ -217,6 +246,10 @@ def download():
                 download_progress[session_id]['status'] = 'completed'
                 download_progress[session_id]['progress'] = 100
                 download_progress[session_id]['completed_at'] = time.time()
+                
+                # Clean up original video files if audio extraction was enabled
+                if options.get('extract_audio', False):
+                    cleanup_video_files_after_audio_extraction(options.get('output_template'))
             else:
                 download_progress[session_id]['status'] = 'error'
                 download_progress[session_id]['error'] = f'Process exited with code {process.returncode}'
@@ -420,19 +453,25 @@ def get_video_info():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
     
-    # Validate URL format
-    if not ('youtube.com' in url or 'youtu.be' in url):
+    # Validate URL format - support youtube.com, youtu.be, and music.youtube.com
+    if not any(domain in url for domain in ['youtube.com', 'youtu.be', 'music.youtube.com']):
         return jsonify({'error': 'Invalid YouTube URL'}), 400
     
     # Check if this is a playlist URL
     is_playlist = 'playlist?' in url or 'list=' in url
     
-    # For playlists, get first item; for videos, use --no-playlist
-    no_playlist_flag = ['--no-playlist'] if not is_playlist else []
-    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download'] + no_playlist_flag + [url]
+    # For playlist URLs, we need to get the first video's info
+    # Use --no-playlist to get single video info
+    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download', '--no-playlist', url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        # Debug logging
+        print(f"[VIDEO-INFO] URL: {url}")
+        print(f"[VIDEO-INFO] Return code: {result.returncode}")
+        if result.stderr:
+            print(f"[VIDEO-INFO] Stderr: {result.stderr[:500]}")
         
         if result.returncode == 0 and result.stdout:
             try:
