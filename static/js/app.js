@@ -218,6 +218,9 @@ const App = {
         if (previewLoading) previewLoading.style.display = 'none';
         if (previewContent) previewContent.style.display = 'block';
         
+        // Set title
+        document.getElementById('previewTitle').textContent = data.title;
+        
         // Set thumbnail (after content is visible)
         const thumbnail = document.getElementById('previewThumbnail');
         if (data.thumbnail) {
