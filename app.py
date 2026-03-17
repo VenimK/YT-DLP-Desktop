@@ -34,35 +34,6 @@ def cleanup_old_downloads():
         download_processes.pop(session_id, None)
         print(f"Cleaned up download session: {session_id}")
 
-def cleanup_video_files_after_audio_extraction(output_template=None):
-    """Remove original video files after successful audio extraction"""
-    video_extensions = ['.mp4', '.webm', '.mkv', '.avi', '.mov', '.flv', '.wmv', '.m4v']
-    
-    try:
-        for filename in os.listdir('.'):
-            # Check if file has video extension
-            if any(filename.lower().endswith(ext) for ext in video_extensions):
-                # Check if corresponding audio file exists
-                base_name = os.path.splitext(filename)[0]
-                audio_extensions = ['.mp3', '.m4a', '.flac', '.wav', '.opus', '.aac', '.ogg']
-                
-                # Look for matching audio file
-                audio_file_exists = False
-                for audio_ext in audio_extensions:
-                    if os.path.exists(base_name + audio_ext):
-                        audio_file_exists = True
-                        break
-                
-                # Remove video file if audio file exists
-                if audio_file_exists:
-                    try:
-                        os.remove(filename)
-                        print(f"[CLEANUP] Removed original video file: {filename}")
-                    except Exception as e:
-                        print(f"[CLEANUP] Failed to remove {filename}: {e}")
-    except Exception as e:
-        print(f"[CLEANUP] Error during cleanup: {e}")
-
 def parse_yt_dlp_progress(line):
     """Parse yt-dlp progress output"""
     patterns = [
@@ -114,18 +85,17 @@ def download():
     
     cmd = ['yt-dlp', '--newline', '--console-title']
     
-    if options.get('format'):
+    if options.get('extract_audio', False):
+        # When extracting audio only, use bestaudio format to avoid downloading video
+        cmd.extend(['-f', 'bestaudio/best'])
+        cmd.append('--extract-audio')
+    elif options.get('format'):
         cmd.extend(['-f', options['format']])
     
     if options.get('output_template'):
         cmd.extend(['-o', options['output_template']])
     else:
         cmd.extend(['-o', '%(title)s.%(ext)s'])
-    
-    if options.get('extract_audio', False):
-        cmd.append('--extract-audio')
-        # Default behavior: original video is deleted after audio extraction
-        # (yt-dlp removes original when --extract-audio is used without --keep-video)
     
     if options.get('audio_format'):
         cmd.extend(['--audio-format', options['audio_format']])
@@ -246,10 +216,6 @@ def download():
                 download_progress[session_id]['status'] = 'completed'
                 download_progress[session_id]['progress'] = 100
                 download_progress[session_id]['completed_at'] = time.time()
-                
-                # Clean up original video files if audio extraction was enabled
-                if options.get('extract_audio', False):
-                    cleanup_video_files_after_audio_extraction(options.get('output_template'))
             else:
                 download_progress[session_id]['status'] = 'error'
                 download_progress[session_id]['error'] = f'Process exited with code {process.returncode}'
@@ -407,41 +373,32 @@ def delete_file(filename):
     try:
         import urllib.parse
         
-        # Debug: log received filename
-        print(f"[DELETE] Received filename: {repr(filename)}")
-        
-        # Flask may or may not have decoded the URL - try both
-        # First, try the filename as-is
-        if '..' in filename or filename.startswith('/') or '\\' in filename:
-            print(f"[DELETE] Security check failed for: {repr(filename)}")
-            return jsonify({'error': 'Invalid filename'}), 400
-        
         # If the filename contains %, it might still be URL-encoded, so decode it
         if '%' in filename:
-            decoded = urllib.parse.unquote(filename)
-            print(f"[DELETE] Decoded filename: {repr(decoded)}")
-            filename = decoded
+            filename = urllib.parse.unquote(filename)
         
-        # Security check again after decoding
-        if '..' in filename or filename.startswith('/') or '\\' in filename:
-            print(f"[DELETE] Security check failed after decode for: {repr(filename)}")
+        # Security check: prevent directory traversal
+        # Use os.path.normpath to resolve any '..' sequences, then verify
+        # the resolved path stays within the current directory
+        if filename.startswith('/') or '\\' in filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+        
+        file_path = os.path.join('.', filename)
+        resolved = os.path.realpath(file_path)
+        cwd = os.path.realpath('.')
+        
+        if not resolved.startswith(cwd + os.sep) and resolved != cwd:
             return jsonify({'error': 'Invalid filename'}), 400
 
-        file_path = os.path.join('.', filename)
-        print(f"[DELETE] Looking for file at: {repr(file_path)}")
-        
-        if not os.path.exists(file_path):
-            print(f"[DELETE] File not found: {repr(file_path)}")
+        if not os.path.exists(resolved):
             return jsonify({'error': 'File not found'}), 404
 
-        os.remove(file_path)
-        print(f"[DELETE] Successfully deleted: {repr(filename)}")
+        os.remove(resolved)
         return jsonify({
             'success': True,
             'message': f'File "{filename}" deleted successfully'
         })
     except Exception as e:
-        print(f"[DELETE] Exception: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/video-info', methods=['POST'])
@@ -453,25 +410,22 @@ def get_video_info():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
     
-    # Validate URL format - support youtube.com, youtu.be, and music.youtube.com
-    if not any(domain in url for domain in ['youtube.com', 'youtu.be', 'music.youtube.com']):
+    # Validate URL format
+    if not ('youtube.com' in url or 'youtu.be' in url):
         return jsonify({'error': 'Invalid YouTube URL'}), 400
     
     # Check if this is a playlist URL
     is_playlist = 'playlist?' in url or 'list=' in url
     
-    # For playlist URLs, we need to get the first video's info
-    # Use --no-playlist to get single video info
-    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download', '--no-playlist', url]
+    # For playlists, only get first item for preview; for videos, use --no-playlist
+    if is_playlist:
+        playlist_flag = ['--playlist-items', '1']
+    else:
+        playlist_flag = ['--no-playlist']
+    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        
-        # Debug logging
-        print(f"[VIDEO-INFO] URL: {url}")
-        print(f"[VIDEO-INFO] Return code: {result.returncode}")
-        if result.stderr:
-            print(f"[VIDEO-INFO] Stderr: {result.stderr[:500]}")
         
         if result.returncode == 0 and result.stdout:
             try:
