@@ -355,12 +355,16 @@ def download_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/download-file/<filename>', methods=['DELETE'])
+@app.route('/download-file/<path:filename>', methods=['DELETE'])
 def delete_file(filename):
     """Delete a downloaded file"""
     try:
+        import urllib.parse
+        # URL decode the filename
+        filename = urllib.parse.unquote(filename)
+        
         # Security check: prevent directory traversal
-        if '..' in filename or '/' in filename or '\\' in filename:
+        if '..' in filename or filename.startswith('/') or '\\' in filename:
             return jsonify({'error': 'Invalid filename'}), 400
 
         file_path = os.path.join('.', filename)

@@ -95,7 +95,9 @@ const API = {
   
   // Delete a downloaded file
   async deleteFile(filename) {
-    return this.fetch(`/download-file/${encodeURIComponent(filename)}`, {
+    // Use encodeURIComponent but ensure proper path encoding
+    const encodedFilename = encodeURIComponent(filename).replace(/%2F/g, '/');
+    return this.fetch(`/download-file/${encodedFilename}`, {
       method: 'DELETE',
     });
   },
