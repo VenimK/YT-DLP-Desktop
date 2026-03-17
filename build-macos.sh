@@ -31,6 +31,7 @@ pyinstaller --onefile \
     --add-data "static:static" \
     --add-binary "bin/yt-dlp:bin" \
     --hidden-import yt_dlp \
+    --hidden-import certifi \
     --name "yt-dlp-desktop-macos-$ARCH_NAME" \
     --clean \
     app.py

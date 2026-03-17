@@ -38,6 +38,7 @@ jobs:
           --add-data "static:static" \
           --add-binary "bin/yt-dlp:bin" \
           --hidden-import yt_dlp \
+          --hidden-import certifi \
           --name yt-dlp-desktop-macos-arm64 \
           --clean \
           app.py
@@ -93,9 +94,9 @@ jobs:
           --add-data "static;static" `
           --add-binary "bin/yt-dlp.exe;bin" `
           --hidden-import yt_dlp `
+          --hidden-import certifi `
           --name yt-dlp-desktop-windows-x64 `
           --clean `
-          --windowed `
           app.py
     
     - name: Upload artifact
@@ -139,6 +140,7 @@ jobs:
           --add-data "static:static" \
           --add-binary "bin/yt-dlp:bin" \
           --hidden-import yt_dlp \
+          --hidden-import certifi \
           --name yt-dlp-desktop-linux-x64 \
           --clean \
           app.py

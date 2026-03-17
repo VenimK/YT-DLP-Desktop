@@ -1,12 +1,22 @@
+import os
+import sys
+import signal
+import atexit
+
+# Suppress Flask's .env warning
+os.environ['FLASK_SKIP_DOTENV'] = '1'
+
 from flask import Flask, render_template, request, jsonify, send_file, redirect
 import subprocess
-import os
 import json
 import re
 import threading
 import time
 import io
+import ssl
 import urllib.request
+import webbrowser
+import socket
 
 app = Flask(__name__)
 
@@ -506,10 +516,32 @@ def get_video_info():
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
+def _get_ssl_context():
+    """Get an SSL context that works in PyInstaller bundles"""
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        pass
+    
+    # Try system certificates
+    try:
+        ctx = ssl.create_default_context()
+        # Test if it works by checking it has CA certs loaded
+        if ctx.cert_store_stats()['x509_ca'] > 0:
+            return ctx
+    except Exception:
+        pass
+    
+    # Fallback: unverified context (safe for public YouTube thumbnails only)
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
 @app.route('/thumbnail-proxy')
 def thumbnail_proxy():
     """Proxy thumbnail requests to avoid CORS issues"""
-    import urllib.request
     thumbnail_url = request.args.get('url')
     
     if not thumbnail_url:
@@ -531,6 +563,8 @@ def thumbnail_proxy():
         if fallback_url:
             urls_to_try.append(fallback_url)
         
+        ssl_ctx = _get_ssl_context()
+        
         for url in urls_to_try:
             try:
                 # Fetch the thumbnail with proper headers
@@ -541,7 +575,7 @@ def thumbnail_proxy():
                     'Referer': 'https://www.youtube.com/'
                 })
                 
-                with urllib.request.urlopen(req, timeout=10) as response:
+                with urllib.request.urlopen(req, timeout=10, context=ssl_ctx) as response:
                     data = response.read()
                     content_type = response.headers.get('Content-Type', 'image/jpeg')
                     
@@ -616,11 +650,90 @@ def get_server_settings():
         'configPath': config_path
     })
 
-if __name__ == '__main__':
-    import socket
-    import sys
+def _cleanup_processes():
+    """Kill all running download subprocesses on exit"""
+    for sid, proc in list(download_processes.items()):
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except Exception:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+def _shutdown(signum=None, frame=None):
+    """Clean shutdown handler"""
+    print("\n[yt-dlp-desktop] Shutting down...")
+    _cleanup_processes()
+    os._exit(0)
+
+def _is_port_available(port):
+    """Check if a port is available"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind(('0.0.0.0', port))
+            return True
+        except socket.error:
+            return False
+
+def _check_yt_dlp():
+    """Check if yt-dlp is available"""
+    try:
+        result = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass
     
-    # Check for config file first, then env var, then default
+    # Check bundled yt-dlp (PyInstaller)
+    if getattr(sys, 'frozen', False):
+        bundle_dir = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(sys.executable)
+        bundled = os.path.join(bundle_dir, 'bin', 'yt-dlp')
+        if sys.platform == 'win32':
+            bundled += '.exe'
+        if os.path.exists(bundled):
+            os.environ['PATH'] = os.path.join(bundle_dir, 'bin') + os.pathsep + os.environ.get('PATH', '')
+            try:
+                result = subprocess.run([bundled, '--version'], capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    return result.stdout.strip()
+            except Exception:
+                pass
+    
+    return None
+
+def _open_browser(port):
+    """Open browser after a short delay"""
+    time.sleep(1.5)
+    webbrowser.open(f'http://localhost:{port}')
+
+if __name__ == '__main__':
+    # Register signal handlers for clean shutdown
+    signal.signal(signal.SIGINT, _shutdown)
+    signal.signal(signal.SIGTERM, _shutdown)
+    if hasattr(signal, 'SIGHUP'):  # Unix only
+        signal.signal(signal.SIGHUP, _shutdown)
+    atexit.register(_cleanup_processes)
+    
+    # Startup banner
+    print("=" * 50)
+    print("  YT-DLP Desktop")
+    print("=" * 50)
+    
+    # Check yt-dlp
+    yt_dlp_version = _check_yt_dlp()
+    if yt_dlp_version:
+        print(f"  yt-dlp version : {yt_dlp_version}")
+    else:
+        print("  WARNING: yt-dlp not found!")
+        print("  Install it: pip install yt-dlp")
+    
+    print(f"  Downloads dir  : {os.path.abspath('.')}")
+    
+    # Determine port
     config_port = None
     config_path = os.path.expanduser('~/.yt-dlp-desktop/config.json')
     
@@ -629,48 +742,53 @@ if __name__ == '__main__':
             with open(config_path, 'r') as f:
                 config = json.load(f)
                 config_port = config.get('serverPort')
-        except Exception as e:
-            print(f"Could not read config file: {e}")
+        except Exception:
+            pass
     
-    # Get preferred port
     preferred_port = config_port or int(os.getenv('PORT', 8080))
-    
-    def is_port_available(port):
-        """Check if a port is available"""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            try:
-                s.bind(('0.0.0.0', port))
-                return True
-            except socket.error:
-                return False
     
     # Try preferred port first, then fall back to 8080-8090
     ports_to_try = [preferred_port] + list(range(8080, 8091))
-    # Remove duplicates while preserving order
     ports_to_try = list(dict.fromkeys(ports_to_try))
     
     port = None
     for p in ports_to_try:
-        if is_port_available(p):
+        if _is_port_available(p):
             port = p
             break
     
     if port is None:
-        print("\n" + "="*60)
-        print("ERROR: Could not find an available port!")
-        print("="*60)
-        print(f"\nTried ports: {ports_to_try}")
-        print("\nTo fix this, you can:")
-        print("1. Stop other applications using ports 8080-8090")
-        print("2. Set a custom port: export PORT=9090 && python app.py")
-        print(f"3. Delete config file: rm {config_path}")
-        print("\n" + "="*60)
+        print("\n  ERROR: No available port found!")
+        print(f"  Tried: {ports_to_try}")
+        print("  Fix: stop apps using those ports or set PORT env var")
+        print("=" * 50)
         sys.exit(1)
     
     if port != preferred_port:
-        print(f"\n⚠️  Port {preferred_port} is already in use.")
-        print(f"✓  Starting server on available port: {port}\n")
-    else:
-        print(f"Starting server on port {port}...")
+        print(f"  Port {preferred_port} in use, using: {port}")
+    
+    url = f"http://localhost:{port}"
+    print(f"  Server URL     : {url}")
+    print("=" * 50)
+    print(f"  Press Ctrl+C to stop")
+    print("=" * 50)
+    
+    # Auto-open browser
+    browser_thread = threading.Thread(target=_open_browser, args=(port,), daemon=True)
+    browser_thread.start()
+    
+    # Suppress Flask's default startup banner but keep request logs
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+    
+    # Use cli_runner to suppress "Serving Flask app" messages
+    import click
+    def secho(text, **kwargs):
+        pass
+    def echo(text, **kwargs):
+        pass
+    click.echo = echo
+    click.secho = secho
     
     app.run(host='0.0.0.0', port=port)
