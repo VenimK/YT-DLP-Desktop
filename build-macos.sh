@@ -35,8 +35,14 @@ pyinstaller --onefile \
     --clean \
     app.py
 
+echo "🔏 Ad-hoc code signing..."
+codesign --force --deep -s - "dist/yt-dlp-desktop-macos-$ARCH_NAME"
+
 echo "✅ Build complete!"
 echo "📁 Output: dist/yt-dlp-desktop-macos-$ARCH_NAME"
 echo ""
 echo "To test run:"
 echo "  ./dist/yt-dlp-desktop-macos-$ARCH_NAME"
+echo ""
+echo "If macOS blocks it, run:"
+echo "  xattr -cr dist/yt-dlp-desktop-macos-$ARCH_NAME"
