@@ -421,16 +421,16 @@ const Downloads = {
     
     let actionButtons = '';
     if (isLyrics) {
-      actionButtons = `<button class="btn btn-success btn-sm" onclick="Lyrics.view('${file.name}')">
+      actionButtons = `<button class="btn btn-success btn-sm action-view">
         <i class="fas fa-eye"></i> View
       </button>`;
     } else {
-      actionButtons = `<button class="btn btn-sm" onclick="API.downloadFile('${file.name}')">
+      actionButtons = `<button class="btn btn-sm action-download">
         <i class="fas fa-download"></i> Download
       </button>`;
     }
     
-    actionButtons += `<button class="btn-delete btn-sm" onclick="Downloads.deleteDownloadedFile('${file.name}')">
+    actionButtons += `<button class="btn-delete btn-sm action-delete">
       <i class="fas fa-trash"></i>
     </button>`;
     
@@ -446,6 +446,22 @@ const Downloads = {
         ${actionButtons}
       </div>
     `;
+    
+    // Attach event listeners after innerHTML is set
+    const deleteBtn = div.querySelector('.action-delete');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', () => this.deleteDownloadedFile(file.name));
+    }
+    
+    const viewBtn = div.querySelector('.action-view');
+    if (viewBtn) {
+      viewBtn.addEventListener('click', () => Lyrics.view(file.name));
+    }
+    
+    const downloadBtn = div.querySelector('.action-download');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => API.downloadFile(file.name));
+    }
     
     return div;
   },

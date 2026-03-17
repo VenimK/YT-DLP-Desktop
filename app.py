@@ -360,10 +360,17 @@ def delete_file(filename):
     """Delete a downloaded file"""
     try:
         import urllib.parse
-        # URL decode the filename
-        filename = urllib.parse.unquote(filename)
         
-        # Security check: prevent directory traversal
+        # Flask may or may not have decoded the URL - try both
+        # First, try the filename as-is
+        if '..' in filename or filename.startswith('/') or '\\' in filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+        
+        # If the filename contains %, it might still be URL-encoded, so decode it
+        if '%' in filename:
+            filename = urllib.parse.unquote(filename)
+        
+        # Security check again after decoding
         if '..' in filename or filename.startswith('/') or '\\' in filename:
             return jsonify({'error': 'Invalid filename'}), 400
 
