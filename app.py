@@ -287,8 +287,13 @@ def get_playlist_metadata():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
     
-    # Use yt-dlp to get playlist metadata
-    cmd = ['yt-dlp', '--flat-playlist', '--dump-json', url]
+    # Detect auto-generated radio/mix playlists (RDAMVM, RD, etc.)
+    # These can have thousands of items, so we limit them
+    is_radio_playlist = 'RDAMVM' in url or 'list=RD' in url
+    max_items = 50 if is_radio_playlist else 100  # Limit radio to 50, others to 100
+    
+    # Use yt-dlp to get playlist metadata with limit
+    cmd = ['yt-dlp', '--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -310,7 +315,13 @@ def get_playlist_metadata():
                     except json.JSONDecodeError:
                         continue
             
-            return jsonify({'videos': videos})
+            # Add warning for radio playlists
+            response = {'videos': videos}
+            if is_radio_playlist and len(videos) >= max_items:
+                response['warning'] = f'Auto-generated playlist limited to first {max_items} items (original has more)'
+                response['is_radio'] = True
+            
+            return jsonify(response)
         else:
             return jsonify({'error': result.stderr}), 500
             

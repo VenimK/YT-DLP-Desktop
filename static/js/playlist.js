@@ -55,7 +55,13 @@ const Playlist = {
         this.videos = data.videos;
         this.selectedVideos = [];
         this.renderPlaylist(data.videos);
-        UI.toast.success(`Loaded ${data.videos.length} videos`);
+        
+        // Show warning for radio playlists
+        if (data.is_radio || data.warning) {
+          UI.toast.warning(data.warning || 'Radio playlist limited to 50 items', 6000);
+        } else {
+          UI.toast.success(`Loaded ${data.videos.length} videos`);
+        }
       } else {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No videos found in playlist</p></div>';
       }
