@@ -95,6 +95,8 @@ def download():
     
     if options.get('extract_audio', False):
         cmd.append('--extract-audio')
+        # Default behavior: original video is deleted after audio extraction
+        # (yt-dlp removes original when --extract-audio is used without --keep-video)
     
     if options.get('audio_format'):
         cmd.extend(['--audio-format', options['audio_format']])
@@ -287,9 +289,9 @@ def get_playlist_metadata():
     if not url:
         return jsonify({'error': 'URL is required'}), 400
     
-    # Detect auto-generated radio/mix playlists (RDAMVM, RD, etc.)
+    # Detect auto-generated radio/mix playlists (RDAMVM, RD, RDCLAK, etc.)
     # These can have thousands of items, so we limit them
-    is_radio_playlist = 'RDAMVM' in url or 'list=RD' in url
+    is_radio_playlist = any(prefix in url for prefix in ['RDAMVM', 'list=RD', 'RDCLAK'])
     max_items = 50 if is_radio_playlist else 100  # Limit radio to 50, others to 100
     
     # Use yt-dlp to get playlist metadata with limit
@@ -372,29 +374,41 @@ def delete_file(filename):
     try:
         import urllib.parse
         
+        # Debug: log received filename
+        print(f"[DELETE] Received filename: {repr(filename)}")
+        
         # Flask may or may not have decoded the URL - try both
         # First, try the filename as-is
         if '..' in filename or filename.startswith('/') or '\\' in filename:
+            print(f"[DELETE] Security check failed for: {repr(filename)}")
             return jsonify({'error': 'Invalid filename'}), 400
         
         # If the filename contains %, it might still be URL-encoded, so decode it
         if '%' in filename:
-            filename = urllib.parse.unquote(filename)
+            decoded = urllib.parse.unquote(filename)
+            print(f"[DELETE] Decoded filename: {repr(decoded)}")
+            filename = decoded
         
         # Security check again after decoding
         if '..' in filename or filename.startswith('/') or '\\' in filename:
+            print(f"[DELETE] Security check failed after decode for: {repr(filename)}")
             return jsonify({'error': 'Invalid filename'}), 400
 
         file_path = os.path.join('.', filename)
+        print(f"[DELETE] Looking for file at: {repr(file_path)}")
+        
         if not os.path.exists(file_path):
+            print(f"[DELETE] File not found: {repr(file_path)}")
             return jsonify({'error': 'File not found'}), 404
 
         os.remove(file_path)
+        print(f"[DELETE] Successfully deleted: {repr(filename)}")
         return jsonify({
             'success': True,
             'message': f'File "{filename}" deleted successfully'
         })
     except Exception as e:
+        print(f"[DELETE] Exception: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/video-info', methods=['POST'])
