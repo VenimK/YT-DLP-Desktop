@@ -10,6 +10,7 @@ const App = {
     this.setupEventListeners();
     this.setupKeyboardShortcuts();
     this.loadAdvancedOptionsPreference();
+    this.initServerSettings();
     
     console.log('🚀 YT-DLP Desktop initialized');
   },
@@ -392,6 +393,117 @@ const App = {
     }
     
     UI.toast.info(checked ? 'Advanced options will always be shown' : 'Advanced options will be hidden by default');
+  },
+  
+  // Save server settings
+  async saveServerSettings() {
+    const portInput = document.getElementById('serverPort');
+    if (!portInput) return;
+    
+    const port = parseInt(portInput.value, 10);
+    
+    // Validate port range
+    if (port < 1024 || port > 65535) {
+      UI.toast.error('Port must be between 1024 and 65535');
+      return;
+    }
+    
+    try {
+      // Save to backend config file
+      const response = await fetch(`${API.baseUrl}/server-settings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ serverPort: port })
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Also save to localStorage for display
+        Utils.storage.set('serverPort', port);
+        
+        // Update the displayed URL
+        const currentUrlEl = document.getElementById('currentServerUrl');
+        if (currentUrlEl) {
+          currentUrlEl.textContent = `http://localhost:${port}`;
+        }
+        
+        UI.toast.success(data.message || `Server port saved: ${port}. Restart the server to apply changes.`);
+      } else {
+        UI.toast.error(data.error || 'Failed to save server settings');
+      }
+    } catch (error) {
+      console.error('Error saving server settings:', error);
+      UI.toast.error('Failed to save server settings');
+    }
+  },
+  
+  // Initialize server settings from backend/localStorage
+  async initServerSettings() {
+    const portInput = document.getElementById('serverPort');
+    const currentUrlEl = document.getElementById('currentServerUrl');
+    
+    if (!portInput) return;
+    
+    // Get actual port from current URL
+    const actualPort = API.getCurrentPort();
+    
+    try {
+      // Try to get configured port from backend
+      const response = await fetch(`${API.baseUrl}/server-settings`);
+      if (response.ok) {
+        const data = await response.json();
+        const configuredPort = data.serverPort || 8080;
+        
+        // Show the configured port in the input
+        portInput.value = configuredPort;
+        
+        // Show actual URL with detected port
+        if (currentUrlEl) {
+          currentUrlEl.textContent = API.getCurrentServerUrl();
+        }
+        
+        // If using a fallback port, show a warning
+        if (actualPort !== configuredPort) {
+          const warningEl = document.createElement('div');
+          warningEl.className = 'port-warning';
+          warningEl.style.cssText = 'color: var(--warning); font-size: 0.85em; margin-top: 5px;';
+          warningEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Using fallback port ${actualPort} (configured port ${configuredPort} was busy)`;
+          
+          // Insert after current URL display
+          if (currentUrlEl && currentUrlEl.parentElement) {
+            currentUrlEl.parentElement.appendChild(warningEl);
+          }
+        }
+        
+        // Also save to localStorage
+        Utils.storage.set('serverPort', configuredPort);
+      } else {
+        // Fallback to localStorage
+        const savedPort = Utils.storage.get('serverPort', 8080);
+        portInput.value = savedPort;
+        if (currentUrlEl) {
+          currentUrlEl.textContent = API.getCurrentServerUrl();
+        }
+      }
+    } catch (error) {
+      // Fallback to localStorage if backend not available
+      const savedPort = Utils.storage.get('serverPort', 8080);
+      portInput.value = savedPort;
+      if (currentUrlEl) {
+        currentUrlEl.textContent = API.getCurrentServerUrl();
+      }
+    }
+    
+    // Add change listener to update URL display
+    portInput.addEventListener('change', () => {
+      const port = parseInt(portInput.value, 10);
+      if (port >= 1024 && port <= 65535 && currentUrlEl) {
+        currentUrlEl.textContent = `http://localhost:${port}`;
+      }
+    });
   },
   
   // Clear form

@@ -91,6 +91,16 @@ const API = {
   // Get thumbnail via proxy
   getThumbnailUrl(thumbnailUrl) {
     return `${this.baseUrl}/thumbnail-proxy?url=${encodeURIComponent(thumbnailUrl)}`;
+  },
+  
+  // Get current server port from window.location
+  getCurrentPort() {
+    return window.location.port || (window.location.protocol === 'https:' ? 443 : 80);
+  },
+  
+  // Get current server URL
+  getCurrentServerUrl() {
+    return `${window.location.protocol}//${window.location.hostname}:${this.getCurrentPort()}`;
   }
 };
 

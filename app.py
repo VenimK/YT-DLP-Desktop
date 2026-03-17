@@ -512,5 +512,116 @@ def thumbnail_proxy():
         # Return a redirect to the original URL as fallback
         return redirect(thumbnail_url, code=302)
 
+@app.route('/server-settings', methods=['POST'])
+def save_server_settings():
+    """Save server settings to config file"""
+    data = request.json
+    port = data.get('serverPort')
+    
+    if not port or not isinstance(port, int) or port < 1024 or port > 65535:
+        return jsonify({'error': 'Invalid port number. Must be between 1024 and 65535.'}), 400
+    
+    config_dir = os.path.expanduser('~/.yt-dlp-desktop')
+    config_path = os.path.join(config_dir, 'config.json')
+    
+    try:
+        # Create config directory if it doesn't exist
+        os.makedirs(config_dir, exist_ok=True)
+        
+        # Read existing config or create new
+        config = {}
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+        
+        # Update server port
+        config['serverPort'] = port
+        
+        # Save config
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Server port saved: {port}. Restart the server to apply changes.',
+            'port': port
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to save settings: {str(e)}'}), 500
+
+@app.route('/server-settings', methods=['GET'])
+def get_server_settings():
+    """Get current server settings from config file"""
+    config_path = os.path.expanduser('~/.yt-dlp-desktop/config.json')
+    
+    config = {}
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+        except Exception as e:
+            return jsonify({'error': f'Failed to read config: {str(e)}'}), 500
+    
+    return jsonify({
+        'serverPort': config.get('serverPort', int(os.getenv('PORT', 8080))),
+        'configPath': config_path
+    })
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
+    import socket
+    import sys
+    
+    # Check for config file first, then env var, then default
+    config_port = None
+    config_path = os.path.expanduser('~/.yt-dlp-desktop/config.json')
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                config_port = config.get('serverPort')
+        except Exception as e:
+            print(f"Could not read config file: {e}")
+    
+    # Get preferred port
+    preferred_port = config_port or int(os.getenv('PORT', 8080))
+    
+    def is_port_available(port):
+        """Check if a port is available"""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('0.0.0.0', port))
+                return True
+            except socket.error:
+                return False
+    
+    # Try preferred port first, then fall back to 8080-8090
+    ports_to_try = [preferred_port] + list(range(8080, 8091))
+    # Remove duplicates while preserving order
+    ports_to_try = list(dict.fromkeys(ports_to_try))
+    
+    port = None
+    for p in ports_to_try:
+        if is_port_available(p):
+            port = p
+            break
+    
+    if port is None:
+        print("\n" + "="*60)
+        print("ERROR: Could not find an available port!")
+        print("="*60)
+        print(f"\nTried ports: {ports_to_try}")
+        print("\nTo fix this, you can:")
+        print("1. Stop other applications using ports 8080-8090")
+        print("2. Set a custom port: export PORT=9090 && python app.py")
+        print(f"3. Delete config file: rm {config_path}")
+        print("\n" + "="*60)
+        sys.exit(1)
+    
+    if port != preferred_port:
+        print(f"\n⚠️  Port {preferred_port} is already in use.")
+        print(f"✓  Starting server on available port: {port}\n")
+    else:
+        print(f"Starting server on port {port}...")
+    
+    app.run(host='0.0.0.0', port=port)
