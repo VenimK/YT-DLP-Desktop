@@ -11,6 +11,7 @@ const App = {
     this.setupKeyboardShortcuts();
     this.loadAdvancedOptionsPreference();
     this.initServerSettings();
+    this.renderDownloadHistory();
     
     console.log('🚀 YT-DLP Desktop initialized');
   },
@@ -522,6 +523,83 @@ const App = {
     Lyrics.close();
     
     UI.toast.info('Form cleared');
+  },
+  
+  // Show keyboard shortcuts modal
+  showKeyboardShortcuts() {
+    const modal = document.getElementById('keyboardShortcutsModal');
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+  },
+  
+  // Hide keyboard shortcuts modal
+  hideKeyboardShortcuts() {
+    const modal = document.getElementById('keyboardShortcutsModal');
+    if (modal) {
+      modal.style.display = 'none';
+    }
+  },
+  
+  // Toggle download history panel
+  toggleDownloadHistory() {
+    const panel = document.getElementById('downloadHistoryPanel');
+    if (panel) {
+      const isVisible = panel.style.display === 'block';
+      panel.style.display = isVisible ? 'none' : 'block';
+    }
+  },
+  
+  // Add to download history
+  addToHistory(filename) {
+    let history = Utils.storage.get('downloadHistory', []);
+    
+    // Add new entry
+    history.unshift({
+      filename,
+      timestamp: Date.now()
+    });
+    
+    // Keep only last 20
+    history = history.slice(0, 20);
+    
+    Utils.storage.set('downloadHistory', history);
+    this.renderDownloadHistory();
+  },
+  
+  // Render download history
+  renderDownloadHistory() {
+    const list = document.getElementById('downloadHistoryList');
+    if (!list) return;
+    
+    const history = Utils.storage.get('downloadHistory', []);
+    
+    if (history.length === 0) {
+      list.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No recent downloads</p>
+        </div>
+      `;
+      return;
+    }
+    
+    list.innerHTML = '';
+    
+    history.forEach(item => {
+      const div = document.createElement('div');
+      div.className = 'download-history-item';
+      
+      const timeAgo = Utils.timeAgo(item.timestamp);
+      
+      div.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span class="history-filename">${Utils.escapeHtml(item.filename)}</span>
+        <span class="history-time">${timeAgo}</span>
+      `;
+      
+      list.appendChild(div);
+    });
   }
 };
 

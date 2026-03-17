@@ -93,6 +93,13 @@ const API = {
     return `${this.baseUrl}/thumbnail-proxy?url=${encodeURIComponent(thumbnailUrl)}`;
   },
   
+  // Delete a downloaded file
+  async deleteFile(filename) {
+    return this.fetch(`/download-file/${encodeURIComponent(filename)}`, {
+      method: 'DELETE',
+    });
+  },
+  
   // Get current server port from window.location
   getCurrentPort() {
     return window.location.port || (window.location.protocol === 'https:' ? 443 : 80);

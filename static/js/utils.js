@@ -63,6 +63,19 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Format time ago (e.g., "2 minutes ago")
+function timeAgo(timestamp) {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  
+  if (seconds < 60) return 'just now';
+  if (seconds < 120) return '1 minute ago';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 7200) return '1 hour ago';
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  if (seconds < 172800) return '1 day ago';
+  return `${Math.floor(seconds / 86400)} days ago`;
+}
+
 // Parse YouTube URL to extract video ID
 function parseYoutubeUrl(url) {
   if (!url) return null;
@@ -244,6 +257,7 @@ window.Utils = {
   formatFileSize,
   formatSpeed,
   escapeHtml,
+  timeAgo,
   parseYoutubeUrl,
   isPlaylistUrl,
   generateId,

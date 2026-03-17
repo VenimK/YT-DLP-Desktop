@@ -187,6 +187,11 @@ const Downloads = {
       body: data.filename || 'Your download has finished',
     });
     
+    // Add to download history
+    if (data.filename) {
+      App.addToHistory(data.filename);
+    }
+    
     // Refresh downloads list
     this.loadDownloads();
     
@@ -213,10 +218,34 @@ const Downloads = {
     }, 10000);
   },
   
+  // Cancel all downloads
+  async cancelAllDownloads() {
+    if (this.activeDownloads.size === 0) {
+      UI.toast.info('No active downloads to cancel');
+      return;
+    }
+    
+    const count = this.activeDownloads.size;
+    
+    // Cancel all downloads
+    const promises = Array.from(this.activeDownloads.keys()).map(sessionId => 
+      API.cancelDownload(sessionId).catch(() => null)
+    );
+    
+    await Promise.allSettled(promises);
+    
+    // Clear all downloads
+    this.activeDownloads.clear();
+    this.renderActiveDownloads();
+    
+    UI.toast.info(`Cancelled ${count} download${count !== 1 ? 's' : ''}`);
+  },
+  
   // Render active downloads queue
   renderActiveDownloads() {
     const container = document.getElementById('activeDownloads');
-    if (!container) return;
+    const list = document.getElementById('activeDownloadsList');
+    if (!container || !list) return;
     
     if (this.activeDownloads.size === 0) {
       container.style.display = 'none';
@@ -224,11 +253,11 @@ const Downloads = {
     }
     
     container.style.display = 'block';
-    container.innerHTML = '';
+    list.innerHTML = '';
     
     this.activeDownloads.forEach((download, sessionId) => {
       const card = this.createDownloadCard(sessionId, download);
-      container.appendChild(card);
+      list.appendChild(card);
     });
   },
   
@@ -293,8 +322,17 @@ const Downloads = {
     const statsEl = card.querySelector('.download-stats');
     if (statsEl) {
       let statsText = '';
-      if (data.speed) statsText += `${data.speed}`;
-      if (data.eta) statsText += (statsText ? ' • ' : '') + `${data.eta} remaining`;
+      if (data.downloaded_bytes && data.total_bytes) {
+        statsText += `${Utils.formatFileSize(data.downloaded_bytes)} / ${Utils.formatFileSize(data.total_bytes)}`;
+      } else if (data.total_bytes) {
+        statsText += Utils.formatFileSize(data.total_bytes);
+      }
+      if (data.speed) {
+        statsText += (statsText ? ' • ' : '') + data.speed;
+      }
+      if (data.eta) {
+        statsText += (statsText ? ' • ' : '') + `${data.eta} remaining`;
+      }
       statsEl.innerHTML = statsText || (data.status === 'completed' ? '<i class="fas fa-check"></i> Complete' : 'Processing...');
     }
     
@@ -381,16 +419,20 @@ const Downloads = {
     else if (isAudio) icon = 'fa-music';
     else if (isVideo) icon = 'fa-video';
     
-    let actionButton = '';
+    let actionButtons = '';
     if (isLyrics) {
-      actionButton = `<button class="btn btn-success btn-sm" onclick="Lyrics.view('${file.name}')">
+      actionButtons = `<button class="btn btn-success btn-sm" onclick="Lyrics.view('${file.name}')">
         <i class="fas fa-eye"></i> View
       </button>`;
     } else {
-      actionButton = `<button class="btn btn-sm" onclick="API.downloadFile('${file.name}')">
+      actionButtons = `<button class="btn btn-sm" onclick="API.downloadFile('${file.name}')">
         <i class="fas fa-download"></i> Download
       </button>`;
     }
+    
+    actionButtons += `<button class="btn-delete btn-sm" onclick="Downloads.deleteDownloadedFile('${file.name}')">
+      <i class="fas fa-trash"></i>
+    </button>`;
     
     div.innerHTML = `
       <i class="fas ${icon}" style="color: var(--primary); font-size: 18px;"></i>
@@ -400,10 +442,25 @@ const Downloads = {
           ${Utils.formatFileSize(file.size)} • ${new Date(file.modified * 1000).toLocaleString()}
         </div>
       </div>
-      ${actionButton}
+      <div style="display: flex; gap: 8px;">
+        ${actionButtons}
+      </div>
     `;
     
     return div;
+  },
+  
+  // Delete a downloaded file
+  async deleteDownloadedFile(filename) {
+    if (!confirm(`Delete "${filename}"?`)) return;
+    
+    try {
+      await API.deleteFile(filename);
+      UI.toast.success(`File "${filename}" deleted`);
+      this.loadDownloads(); // Refresh list
+    } catch (error) {
+      UI.toast.error(`Failed to delete "${filename}"`);
+    }
   }
 };
 

@@ -355,6 +355,26 @@ def download_file(filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/download-file/<filename>', methods=['DELETE'])
+def delete_file(filename):
+    """Delete a downloaded file"""
+    try:
+        # Security check: prevent directory traversal
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+
+        file_path = os.path.join('.', filename)
+        if not os.path.exists(file_path):
+            return jsonify({'error': 'File not found'}), 404
+
+        os.remove(file_path)
+        return jsonify({
+            'success': True,
+            'message': f'File "{filename}" deleted successfully'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/video-info', methods=['POST'])
 def get_video_info():
     """Get video metadata for preview"""

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/static/css/components.css">
   <link rel="stylesheet" href="/static/css/layout.css">
   <link rel="stylesheet" href="/static/css/animations.css">
+  <link rel="stylesheet" href="/static/css/modal.css">
 </head>
 <body>
   <div class="app-container">
@@ -338,7 +339,15 @@
       </form>
       
       <!-- Active Downloads Queue -->
-      <div id="activeDownloads" style="display: none;"></div>
+      <div id="activeDownloads" style="display: none;">
+        <div class="active-downloads-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3><i class="fas fa-spinner spin"></i> Active Downloads</h3>
+          <button type="button" id="cancelAllDownloads" class="btn btn-danger btn-sm" onclick="Downloads.cancelAllDownloads()">
+            <i class="fas fa-times-circle"></i> Cancel All
+          </button>
+        </div>
+        <div id="activeDownloadsList"></div>
+      </div>
       
       <!-- Lyrics Section -->
       <div id="lyricsSection" class="lyrics-section">
@@ -358,9 +367,14 @@
         <div class="glass-card form-section">
           <div class="downloads-header">
             <h3><i class="fas fa-download"></i> Downloaded Files</h3>
-            <button type="button" id="refreshDownloads" class="btn btn-sm">
-              <i class="fas fa-sync-alt"></i> Refresh
-            </button>
+            <div style="display: flex; gap: 10px;">
+              <button type="button" id="keyboardShortcutsBtn" class="btn btn-sm" onclick="App.showKeyboardShortcuts()">
+                <i class="fas fa-keyboard"></i> Shortcuts
+              </button>
+              <button type="button" id="refreshDownloads" class="btn btn-sm">
+                <i class="fas fa-sync-alt"></i> Refresh
+              </button>
+            </div>
           </div>
           <div id="downloadsList" class="downloads-list">
             <div class="empty-state">
@@ -373,6 +387,57 @@
     </main>
   </div>
   
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="keyboardShortcutsModal" class="modal" style="display: none;">
+    <div class="modal-overlay" onclick="App.hideKeyboardShortcuts()"></div>
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h3><i class="fas fa-keyboard"></i> Keyboard Shortcuts</h3>
+        <button type="button" class="btn btn-sm" onclick="App.hideKeyboardShortcuts()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>D</kbd>
+            <span>Focus URL input</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>Q</kbd>
+            <span>Clear form</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
+            <span>Start download</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Esc</kbd>
+            <span>Close lyrics/modals</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Download History Panel -->
+  <div id="downloadHistoryPanel" class="download-history-panel" style="display: none;">
+    <div class="glass-card">
+      <div class="download-history-header">
+        <h3><i class="fas fa-history"></i> Recent Downloads</h3>
+        <button type="button" class="btn btn-sm" onclick="App.toggleDownloadHistory()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="downloadHistoryList" class="download-history-list">
+        <div class="empty-state">
+          <i class="fas fa-inbox"></i>
+          <p>No recent downloads</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="/static/js/utils.js"></script>
   <script src="/static/js/api.js"></script>
