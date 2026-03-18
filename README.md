@@ -1,10 +1,8 @@
 # YT-DLP Desktop
 
-[![Build & Release](https://github.com/VenimK/YT-DLP-Desktop/actions/workflows/build.yml/badge.svg)](https://github.com/VenimK/YT-DLP-Desktop/actions/workflows/build.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/VenimK/YT-DLP-Desktop)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64)
 [![GitHub Release Date](https://img.shields.io/github/release-date/VenimK/YT-DLP-Desktop?style=flat)](https://github.com/VenimK/YT-DLP-Desktop/releases)
-[![GitHub All Releases](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/total.svg)](https://github.com/VenimK/YT-DLP-Desktop/releases)
-[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+latest&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+latest&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/tag/v1.0.0)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
