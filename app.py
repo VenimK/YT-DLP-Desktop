@@ -72,6 +72,30 @@ ALLOWED_THUMBNAIL_HOSTS = {
 }
 
 
+def _get_bundled_yt_dlp_path():
+    """Return the bundled yt-dlp path for frozen builds, if present."""
+    if not getattr(sys, 'frozen', False):
+        return None
+
+    bundle_dir = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(sys.executable)
+    bundled = os.path.join(bundle_dir, 'bin', 'yt-dlp')
+    if sys.platform == 'win32':
+        bundled += '.exe'
+    if os.path.exists(bundled):
+        return bundled
+    return None
+
+
+def _get_yt_dlp_executable():
+    """Prefer the bundled yt-dlp in packaged builds; otherwise use PATH."""
+    bundled = _get_bundled_yt_dlp_path()
+    if bundled:
+        bundle_bin = os.path.dirname(bundled)
+        os.environ['PATH'] = bundle_bin + os.pathsep + os.environ.get('PATH', '')
+        return bundled
+    return 'yt-dlp'
+
+
 def _ensure_app_dirs():
     os.makedirs(DOWNLOADS_DIR, exist_ok=True)
 
@@ -226,7 +250,7 @@ def search_youtube():
     if not query:
         return jsonify({'error': 'Query is required'}), 400
     
-    cmd = ['yt-dlp', '--dump-json', '--flat-playlist', '--no-download',
+    cmd = [_get_yt_dlp_executable(), '--dump-json', '--flat-playlist', '--no-download',
            f'ytsearch{max_results}:{query}']
     
     log('SEARCH', f'"{query}" (max {max_results})')
@@ -294,7 +318,7 @@ def download():
     if not _is_allowed_youtube_url(url):
         return jsonify({'error': 'Only YouTube URLs are allowed'}), 400
     
-    cmd = ['yt-dlp', '--newline', '--console-title']
+    cmd = [_get_yt_dlp_executable(), '--newline', '--console-title']
     
     if options.get('extract_audio', False):
         # When extracting audio only, use bestaudio format to avoid downloading video
@@ -538,7 +562,7 @@ def get_playlist_metadata():
     max_items = 50 if is_radio_playlist else 100  # Limit radio to 50, others to 100
     
     # Use yt-dlp to get playlist metadata with limit
-    cmd = ['yt-dlp', '--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
+    cmd = [_get_yt_dlp_executable(), '--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -649,7 +673,7 @@ def get_video_info():
         playlist_flag = ['--playlist-items', '1']
     else:
         playlist_flag = ['--no-playlist']
-    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
+    cmd = [_get_yt_dlp_executable(), '--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -882,6 +906,15 @@ def _is_port_available(port):
 
 def _check_yt_dlp():
     """Check if yt-dlp is available"""
+    bundled = _get_bundled_yt_dlp_path()
+    if bundled:
+        try:
+            result = subprocess.run([bundled, '--version'], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+
     try:
         result = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
@@ -890,22 +923,7 @@ def _check_yt_dlp():
         pass
     except Exception:
         pass
-    
-    # Check bundled yt-dlp (PyInstaller)
-    if getattr(sys, 'frozen', False):
-        bundle_dir = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(sys.executable)
-        bundled = os.path.join(bundle_dir, 'bin', 'yt-dlp')
-        if sys.platform == 'win32':
-            bundled += '.exe'
-        if os.path.exists(bundled):
-            os.environ['PATH'] = os.path.join(bundle_dir, 'bin') + os.pathsep + os.environ.get('PATH', '')
-            try:
-                result = subprocess.run([bundled, '--version'], capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    return result.stdout.strip()
-            except Exception:
-                pass
-    
+
     return None
 
 def _open_browser(port):
