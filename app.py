@@ -20,6 +20,30 @@ import socket
 
 app = Flask(__name__)
 
+# ── Structured Logger ──────────────────────────────────────────────
+from datetime import datetime
+
+_LOG_COLORS = {
+    'SERVER':   '\033[96m',   # cyan
+    'SEARCH':   '\033[93m',   # yellow
+    'DOWNLOAD': '\033[92m',   # green
+    'PLAYER':   '\033[95m',   # magenta
+    'UPDATE':   '\033[94m',   # blue
+    'CLEANUP':  '\033[90m',   # gray
+    'ERROR':    '\033[91m',   # red
+    'INFO':     '\033[97m',   # white
+}
+_LOG_RESET = '\033[0m'
+
+def log(tag, message):
+    """Print a structured log line: HH:MM:SS [TAG] message"""
+    ts = datetime.now().strftime('%H:%M:%S')
+    color = _LOG_COLORS.get(tag, _LOG_RESET)
+    padded = tag.ljust(8)
+    print(f"{ts} {color}[{padded}]{_LOG_RESET} {message}", flush=True)
+
+# ── State ──────────────────────────────────────────────────────────
+
 # Store download progress for each session
 download_progress = {}
 download_processes = {}
@@ -42,7 +66,7 @@ def cleanup_old_downloads():
     for session_id in sessions_to_remove:
         download_progress.pop(session_id, None)
         download_processes.pop(session_id, None)
-        print(f"Cleaned up download session: {session_id}")
+        log('CLEANUP', f"Removed session {session_id}")
 
 def parse_yt_dlp_progress(line):
     """Parse yt-dlp progress output"""
@@ -96,10 +120,14 @@ def search_youtube():
     cmd = ['yt-dlp', '--dump-json', '--flat-playlist', '--no-download',
            f'ytsearch{max_results}:{query}']
     
+    log('SEARCH', f'"{query}" (max {max_results})')
+    search_start = time.time()
+    
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         
         if result.returncode != 0:
+            log('ERROR', f'Search failed: {result.stderr[:100]}')
             return jsonify({'error': 'Search failed', 'details': result.stderr[:200]}), 500
         
         results = []
@@ -120,10 +148,14 @@ def search_youtube():
             except json.JSONDecodeError:
                 continue
         
+        elapsed = time.time() - search_start
+        log('SEARCH', f'"{query}" → {len(results)} results ({elapsed:.1f}s)')
         return jsonify({'results': results})
     except subprocess.TimeoutExpired:
+        log('ERROR', f'Search timed out: "{query}"')
         return jsonify({'error': 'Search timed out'}), 500
     except Exception as e:
+        log('ERROR', f'Search error: {e}')
         return jsonify({'error': str(e)}), 500
 
 @app.route('/stream/<path:filename>')
@@ -147,6 +179,7 @@ def stream_file(filename):
     if not os.path.exists(resolved):
         return jsonify({'error': 'File not found'}), 404
     
+    log('PLAYER', f'Streaming: {filename}')
     return send_file(resolved, conditional=True)
 
 @app.route('/download', methods=['POST'])
@@ -250,6 +283,15 @@ def download():
     if not session_id:
         session_id = os.urandom(8).hex()
     
+    # Log download details
+    active_opts = [k for k, v in options.items() if v and v is not True or (isinstance(v, bool) and v)]
+    opt_summary = ', '.join(f'{k}={v}' for k, v in options.items() if v and k not in ('format', 'output_template'))
+    log('DOWNLOAD', f'Started (session: {session_id[:8]})')
+    log('DOWNLOAD', f'URL: {url}')
+    log('DOWNLOAD', f'Command: {" ".join(cmd)}')
+    if opt_summary:
+        log('DOWNLOAD', f'Options: {opt_summary}')
+    
     # Cleanup old downloads before starting new one
     cleanup_old_downloads()
     
@@ -263,6 +305,7 @@ def download():
     }
     
     def run_download():
+        dl_start = time.time()
         process = None
         try:
             process = subprocess.Popen(
@@ -305,15 +348,20 @@ def download():
                 download_progress[session_id]['status'] = 'completed'
                 download_progress[session_id]['progress'] = 100
                 download_progress[session_id]['completed_at'] = time.time()
+                elapsed = time.time() - dl_start
+                fname = download_progress[session_id].get('filename', '?')
+                log('DOWNLOAD', f'Completed: {fname} ({elapsed:.1f}s, session: {session_id[:8]})')
             else:
                 download_progress[session_id]['status'] = 'error'
                 download_progress[session_id]['error'] = f'Process exited with code {process.returncode}'
                 download_progress[session_id]['completed_at'] = time.time()
+                log('ERROR', f'Download failed (session: {session_id[:8]}): exit code {process.returncode}')
                 
         except Exception as e:
             download_progress[session_id]['status'] = 'error'
             download_progress[session_id]['error'] = str(e)
             download_progress[session_id]['completed_at'] = time.time()
+            log('ERROR', f'Download exception (session: {session_id[:8]}): {e}')
         finally:
             # Remove process reference
             download_processes.pop(session_id, None)
@@ -348,6 +396,7 @@ def cancel_download(session_id):
     
     if process and process.poll() is None:
         # Process is still running, terminate it
+        log('DOWNLOAD', f'Cancelling (session: {session_id[:8]})')
         try:
             process.terminate()
             # Wait a bit for graceful termination
@@ -670,7 +719,7 @@ def thumbnail_proxy():
                 raise
                 
     except Exception as e:
-        print(f"Thumbnail proxy error: {e}")
+        log('ERROR', f'Thumbnail proxy: {e}')
         # Return a redirect to the original URL as fallback
         return redirect(thumbnail_url, code=302)
 
@@ -743,7 +792,7 @@ def _cleanup_processes():
 
 def _shutdown(signum=None, frame=None):
     """Clean shutdown handler"""
-    print("\n[yt-dlp-desktop] Shutting down...")
+    log('SERVER', 'Shutting down...')
     _cleanup_processes()
     os._exit(0)
 
@@ -789,6 +838,34 @@ def _open_browser(port):
     time.sleep(1.5)
     webbrowser.open(f'http://localhost:{port}')
 
+def _check_yt_dlp_update(current_version):
+    """Check if a newer version of yt-dlp is available (non-blocking)"""
+    try:
+        req = urllib.request.Request(
+            'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest',
+            headers={'User-Agent': 'YT-DLP-Desktop/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            data = json.loads(resp.read().decode())
+            latest = data.get('tag_name', '').strip()
+            if latest and latest != current_version:
+                log('UPDATE', f'yt-dlp {current_version} → {latest} available! Run: yt-dlp -U')
+                return latest
+            else:
+                log('UPDATE', f'yt-dlp {current_version} ✓ (up to date)')
+                return None
+    except Exception as e:
+        log('UPDATE', f'Could not check for updates: {e}')
+        return None
+
+# Store latest version info for the API endpoint
+_update_info = {'current': None, 'latest': None, 'checked': False}
+
+@app.route('/check-update')
+def check_update():
+    """Return yt-dlp version and update status"""
+    return jsonify(_update_info)
+
 if __name__ == '__main__':
     # Register signal handlers for clean shutdown
     signal.signal(signal.SIGINT, _shutdown)
@@ -805,12 +882,21 @@ if __name__ == '__main__':
     # Check yt-dlp
     yt_dlp_version = _check_yt_dlp()
     if yt_dlp_version:
-        print(f"  yt-dlp version : {yt_dlp_version}")
+        log('SERVER', f'yt-dlp version: {yt_dlp_version}')
+        _update_info['current'] = yt_dlp_version
     else:
-        print("  WARNING: yt-dlp not found!")
-        print("  Install it: pip install yt-dlp")
+        log('ERROR', 'yt-dlp not found! Install it: pip install yt-dlp')
     
-    print(f"  Downloads dir  : {os.path.abspath('.')}")
+    log('SERVER', f'Downloads dir: {os.path.abspath(".")}')
+    
+    # Check for yt-dlp updates in background
+    if yt_dlp_version:
+        def _bg_update_check():
+            latest = _check_yt_dlp_update(yt_dlp_version)
+            _update_info['latest'] = latest
+            _update_info['checked'] = True
+        update_thread = threading.Thread(target=_bg_update_check, daemon=True)
+        update_thread.start()
     
     # Determine port
     config_port = None
@@ -837,32 +923,49 @@ if __name__ == '__main__':
             break
     
     if port is None:
-        print("\n  ERROR: No available port found!")
-        print(f"  Tried: {ports_to_try}")
-        print("  Fix: stop apps using those ports or set PORT env var")
-        print("=" * 50)
+        log('ERROR', f'No available port found! Tried: {ports_to_try}')
+        log('ERROR', 'Fix: stop apps using those ports or set PORT env var')
         sys.exit(1)
     
     if port != preferred_port:
-        print(f"  Port {preferred_port} in use, using: {port}")
+        log('SERVER', f'Port {preferred_port} in use, using: {port}')
     
     url = f"http://localhost:{port}"
-    print(f"  Server URL     : {url}")
+    log('SERVER', f'URL: {url}')
     print("=" * 50)
-    print(f"  Press Ctrl+C to stop")
+    log('SERVER', 'Press Ctrl+C to stop')
     print("=" * 50)
     
     # Auto-open browser
     browser_thread = threading.Thread(target=_open_browser, args=(port,), daemon=True)
     browser_thread.start()
     
-    # Suppress Flask's default startup banner but keep request logs
-    import logging
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
+    # Suppress Flask's default startup banner but route requests through our logger
+    import logging as _logging
     
-    # Use cli_runner to suppress "Serving Flask app" messages
+    class _RequestFilter(_logging.Filter):
+        """Route werkzeug request logs through our structured logger"""
+        def filter(self, record):
+            msg = record.getMessage()
+            # Filter out Flask startup noise
+            if 'Serving Flask app' in msg or 'Debug mode' in msg or 'WARNING: This is a development server' in msg or 'Use a production WSGI server' in msg or 'Press CTRL+C to quit' in msg:
+                return False
+            # Skip noisy requests (static files, polling, thumbnails)
+            if '/static/' in msg or '/favicon' in msg or '/thumbnail-proxy' in msg or '/progress/' in msg or 'GET /downloads' in msg or '/server-settings' in msg or '/check-update' in msg:
+                return False
+            # Route HTTP request logs through our logger
+            if record.levelno <= _logging.INFO:
+                log('SERVER', msg.strip())
+                return False
+            return True
+    
+    werkzeug_log = _logging.getLogger('werkzeug')
+    werkzeug_log.addFilter(_RequestFilter())
+    
+    # Suppress click echo (Flask banner)
     import click
+    _orig_echo = click.echo
+    _orig_secho = click.secho
     def secho(text, **kwargs):
         pass
     def echo(text, **kwargs):
