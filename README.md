@@ -47,7 +47,7 @@ Pre-built executables are available on the [Releases](https://github.com/YOUR_US
 
 ### Quick Start
 
-1. Download the appropriate executable for your platform from [Releases](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/releases)
+1. Download the appropriate executable for your platform from [Releases](https://github.com/VenimK/YT-DLP-Desktop/releases)
 2. Make it executable (macOS/Linux):
    ```bash
    chmod +x yt-dlp-desktop-macos-arm64  # or yt-dlp-desktop-linux-x64
@@ -63,7 +63,7 @@ The app will open in your browser at `http://localhost:8080`.
 
 ```bash
 # Download latest release
-curl -L -o yt-dlp-desktop https://github.com/YOUR_USERNAME/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64
+curl -L -o yt-dlp-desktop https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64
 chmod +x yt-dlp-desktop
 ./yt-dlp-desktop
 ```
@@ -78,7 +78,7 @@ chmod +x yt-dlp-desktop
 
 ```bash
 # Download latest release
-curl -L -o yt-dlp-desktop https://github.com/YOUR_USERNAME/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-linux-x64
+curl -L -o yt-dlp-desktop https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-linux-x64
 chmod +x yt-dlp-desktop
 ./yt-dlp-desktop
 ```
@@ -99,7 +99,7 @@ sudo mv yt-dlp-desktop /usr/local/bin/
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/YT-DLP-Desktop.git
+git clone https://github.com/VenimK/YT-DLP-Desktop.git
 cd YT-DLP-Desktop
 
 # Install dependencies
@@ -262,8 +262,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📧 Support
 
-- Create an [Issue](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/issues) for bug reports
-- Start a [Discussion](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/discussions) for questions
+- Create an [Issue](https://github.com/VenimK/YT-DLP-Desktop/issues) for bug reports
+- Start a [Discussion](https://github.com/VenimK/YT-DLP-Desktop/discussions) for questions
 
 ---
 
