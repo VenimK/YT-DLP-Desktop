@@ -29,7 +29,7 @@ const Lyrics = {
       }
     } catch (error) {
       console.error('Lyrics error:', error);
-      display.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Error: ${error.message}</p></div>`;
+      display.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Error: ${Utils.escapeHtml(error.message)}</p></div>`;
     }
   },
   
@@ -149,12 +149,12 @@ const Lyrics = {
       }
     }
     
-    return unique.join('\n\n');
+    return unique.map(line => `<p>${Utils.escapeHtml(line)}</p>`).join('');
   },
   
   // Format plain text
   formatPlainText(text) {
-    return Utils.escapeHtml(text);
+    return `<div style="white-space: pre-wrap;">${Utils.escapeHtml(text)}</div>`;
   }
 };
 
