@@ -845,7 +845,7 @@ def _check_yt_dlp_update(current_version):
             'https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest',
             headers={'User-Agent': 'YT-DLP-Desktop/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5, context=_get_ssl_context()) as resp:
             data = json.loads(resp.read().decode())
             latest = data.get('tag_name', '').strip()
             if latest and latest != current_version:
