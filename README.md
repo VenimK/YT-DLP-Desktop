@@ -1,8 +1,16 @@
 # YT-DLP Desktop
 
-[![Build & Release](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/actions/workflows/build.yml/badge.svg)](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/YOUR_USERNAME/YT-DLP-Desktop)](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/releases)
+[![Build & Release](https://github.com/VenimK/YT-DLP-Desktop/actions/workflows/build.yml/badge.svg)](https://github.com/VenimK/YT-DLP-Desktop/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/VenimK/YT-DLP-Desktop)](https://github.com/VenimK/YT-DLP-Desktop/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+
+## ❤️ Support Me
+Enjoy my projects? Any support is greatly appreciated!
+
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?style=for-the-badge&logo=paypal&logoColor=white)](https://paypal.me/VenimK)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/venimK)
+
 
 A modern, cross-platform YouTube downloader desktop application built with Flask and modern web technologies. Features a beautiful glassmorphism UI, real-time download progress, playlist support, and more.
 
