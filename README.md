@@ -1,10 +1,10 @@
 # YT-DLP Desktop
 
-[![GitHub Release](https://img.shields.io/github/v/release/VenimK/YT-DLP-Desktop)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64)
+[![GitHub Release](https://img.shields.io/github/v/release/VenimK/YT-DLP-Desktop)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64.zip)
 [![GitHub Release Date](https://img.shields.io/github/release-date/VenimK/YT-DLP-Desktop?style=flat)](https://github.com/VenimK/YT-DLP-Desktop/releases)
 [![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+Linux&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-linux-x64)
 [![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+Windows&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-windows-x64.exe)
-[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+macOS+ARM64&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-macos-arm64)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+macOS+ARM64&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-macos-arm64.zip)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
@@ -47,14 +47,16 @@ Pre-built executables are available on the [Releases](https://github.com/YOUR_US
 
 ### Quick Start
 
-1. Download the appropriate executable for your platform from [Releases](https://github.com/VenimK/YT-DLP-Desktop/releases)
-2. Make it executable (macOS/Linux):
+1. Download the appropriate file for your platform from [Releases](https://github.com/VenimK/YT-DLP-Desktop/releases)
+2. **macOS**: Unzip the file, then run the executable
    ```bash
-   chmod +x yt-dlp-desktop-macos-arm64  # or yt-dlp-desktop-linux-x64
-   ```
-3. Run it!
-   ```bash
+   unzip yt-dlp-desktop-macos-arm64.zip
    ./yt-dlp-desktop-macos-arm64
+   ```
+   **Linux**: Make executable and run
+   ```bash
+   chmod +x yt-dlp-desktop-linux-x64
+   ./yt-dlp-desktop-linux-x64
    ```
 
 The app will open in your browser at `http://localhost:8080`.
@@ -62,10 +64,10 @@ The app will open in your browser at `http://localhost:8080`.
 ### macOS
 
 ```bash
-# Download latest release
-curl -L -o yt-dlp-desktop https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64
-chmod +x yt-dlp-desktop
-./yt-dlp-desktop
+# Download and extract
+curl -L -o yt-dlp-desktop-macos-arm64.zip https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64.zip
+unzip yt-dlp-desktop-macos-arm64.zip
+./yt-dlp-desktop-macos-arm64
 ```
 
 ### Windows
