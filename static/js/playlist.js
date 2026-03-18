@@ -66,7 +66,7 @@ const Playlist = {
         list.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>No videos found in playlist</p></div>';
       }
     } catch (error) {
-      list.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Error: ${error.message}</p></div>`;
+      list.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Error: ${Utils.escapeHtml(error.message)}</p></div>`;
       UI.toast.error('Failed to load playlist');
     } finally {
       UI.loading.hide('fetchPlaylistBtn');

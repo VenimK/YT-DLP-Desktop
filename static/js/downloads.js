@@ -336,7 +336,7 @@ const Downloads = {
       if (data.eta) {
         statsText += (statsText ? ' • ' : '') + `${data.eta} remaining`;
       }
-      statsEl.innerHTML = statsText || (data.status === 'completed' ? '<i class="fas fa-check"></i> Complete' : 'Processing...');
+      statsEl.textContent = statsText || (data.status === 'completed' ? 'Complete' : 'Processing...');
     }
     
     // Update progress bar

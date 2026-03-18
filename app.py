@@ -6,7 +6,7 @@ import atexit
 # Suppress Flask's .env warning
 os.environ['FLASK_SKIP_DOTENV'] = '1'
 
-from flask import Flask, render_template, request, jsonify, send_file, redirect
+from flask import Flask, render_template, request, jsonify, send_file, make_response
 import subprocess
 import json
 import re
@@ -15,6 +15,7 @@ import time
 import io
 import ssl
 import urllib.request
+import urllib.parse
 import webbrowser
 import socket
 
@@ -50,6 +51,129 @@ download_processes = {}
 
 # Cleanup old downloads after 10 minutes
 DOWNLOAD_CLEANUP_TIMEOUT = 600
+THUMBNAIL_MAX_BYTES = 5 * 1024 * 1024
+
+APP_DIR = os.path.expanduser('~/.yt-dlp-desktop')
+DOWNLOADS_DIR = os.path.join(APP_DIR, 'downloads')
+CONFIG_PATH = os.path.join(APP_DIR, 'config.json')
+AUTH_COOKIE_NAME = 'yt_dlp_desktop_auth'
+SESSION_TOKEN = os.urandom(24).hex()
+
+ALLOWED_YOUTUBE_HOSTS = {
+    'youtube.com',
+    'www.youtube.com',
+    'm.youtube.com',
+    'music.youtube.com',
+    'youtu.be',
+}
+
+ALLOWED_THUMBNAIL_HOSTS = {
+    'img.youtube.com',
+}
+
+
+def _get_bundled_yt_dlp_path():
+    """Return the bundled yt-dlp path for frozen builds, if present."""
+    if not getattr(sys, 'frozen', False):
+        return None
+
+    bundle_dir = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(sys.executable)
+    bundled = os.path.join(bundle_dir, 'bin', 'yt-dlp')
+    if sys.platform == 'win32':
+        bundled += '.exe'
+    if os.path.exists(bundled):
+        return bundled
+    return None
+
+
+def _get_yt_dlp_executable():
+    """Prefer the bundled yt-dlp in packaged builds; otherwise use PATH."""
+    bundled = _get_bundled_yt_dlp_path()
+    if bundled:
+        bundle_bin = os.path.dirname(bundled)
+        os.environ['PATH'] = bundle_bin + os.pathsep + os.environ.get('PATH', '')
+        return bundled
+    return 'yt-dlp'
+
+
+def _ensure_app_dirs():
+    os.makedirs(DOWNLOADS_DIR, exist_ok=True)
+
+
+def _is_allowed_youtube_url(url):
+    """Allow only normal YouTube watch/playlist/share URLs."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+
+    if parsed.scheme not in ('http', 'https') or not parsed.hostname:
+        return False
+
+    host = parsed.hostname.lower()
+    return host in ALLOWED_YOUTUBE_HOSTS or host.endswith('.youtube.com')
+
+
+def _is_allowed_thumbnail_url(url):
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        return False
+
+    if parsed.scheme != 'https' or not parsed.hostname:
+        return False
+
+    host = parsed.hostname.lower()
+    return host in ALLOWED_THUMBNAIL_HOSTS or host.endswith('.ytimg.com')
+
+
+def _resolve_download_path(filename):
+    """Resolve a requested file path underneath the dedicated downloads directory."""
+    _ensure_app_dirs()
+
+    if not filename:
+        raise ValueError('Filename is required')
+
+    if '%' in filename:
+        filename = urllib.parse.unquote(filename)
+
+    drive, _ = os.path.splitdrive(filename)
+    if filename.startswith(('/', '\\')) or drive:
+        raise ValueError('Invalid filename')
+
+    resolved = os.path.realpath(os.path.join(DOWNLOADS_DIR, filename))
+    base_dir = os.path.realpath(DOWNLOADS_DIR)
+
+    if not resolved.startswith(base_dir + os.sep) and resolved != base_dir:
+        raise ValueError('Invalid filename')
+
+    return resolved, os.path.relpath(resolved, base_dir)
+
+
+def _build_output_template(template):
+    _ensure_app_dirs()
+
+    template = (template or '%(title)s.%(ext)s').strip()
+    drive, _ = os.path.splitdrive(template)
+
+    if not template:
+        template = '%(title)s.%(ext)s'
+    if drive or '/' in template or '\\' in template:
+        raise ValueError('Output template must stay inside the app downloads directory')
+
+    return os.path.join(DOWNLOADS_DIR, template)
+
+
+@app.before_request
+def require_local_session():
+    """Only the locally served UI may use API routes."""
+    if request.endpoint in ('index', 'static'):
+        return None
+    if request.path == '/favicon.ico':
+        return None
+    if request.cookies.get(AUTH_COOKIE_NAME) != SESSION_TOKEN:
+        return jsonify({'error': 'Unauthorized'}), 401
+    return None
 
 def cleanup_old_downloads():
     """Remove old completed/failed downloads from memory"""
@@ -105,7 +229,16 @@ def parse_yt_dlp_progress(line):
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    response = make_response(render_template('index.html'))
+    response.set_cookie(
+        AUTH_COOKIE_NAME,
+        SESSION_TOKEN,
+        httponly=True,
+        samesite='Strict',
+        secure=False,
+        path='/',
+    )
+    return response
 
 @app.route('/search', methods=['POST'])
 def search_youtube():
@@ -117,7 +250,7 @@ def search_youtube():
     if not query:
         return jsonify({'error': 'Query is required'}), 400
     
-    cmd = ['yt-dlp', '--dump-json', '--flat-playlist', '--no-download',
+    cmd = [_get_yt_dlp_executable(), '--dump-json', '--flat-playlist', '--no-download',
            f'ytsearch{max_results}:{query}']
     
     log('SEARCH', f'"{query}" (max {max_results})')
@@ -161,25 +294,15 @@ def search_youtube():
 @app.route('/stream/<path:filename>')
 def stream_file(filename):
     """Stream an audio/video file for the built-in player"""
-    import urllib.parse
-    
-    if '%' in filename:
-        filename = urllib.parse.unquote(filename)
-    
-    if filename.startswith('/') or '\\' in filename:
-        return jsonify({'error': 'Invalid filename'}), 400
-    
-    file_path = os.path.join('.', filename)
-    resolved = os.path.realpath(file_path)
-    cwd = os.path.realpath('.')
-    
-    if not resolved.startswith(cwd + os.sep) and resolved != cwd:
-        return jsonify({'error': 'Invalid filename'}), 400
-    
+    try:
+        resolved, safe_name = _resolve_download_path(filename)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
     if not os.path.exists(resolved):
         return jsonify({'error': 'File not found'}), 404
     
-    log('PLAYER', f'Streaming: {filename}')
+    log('PLAYER', f'Streaming: {safe_name}')
     return send_file(resolved, conditional=True)
 
 @app.route('/download', methods=['POST'])
@@ -191,8 +314,11 @@ def download():
     
     if not url:
         return jsonify({'error': 'URL is required'}), 400
+
+    if not _is_allowed_youtube_url(url):
+        return jsonify({'error': 'Only YouTube URLs are allowed'}), 400
     
-    cmd = ['yt-dlp', '--newline', '--console-title']
+    cmd = [_get_yt_dlp_executable(), '--newline', '--console-title']
     
     if options.get('extract_audio', False):
         # When extracting audio only, use bestaudio format to avoid downloading video
@@ -201,10 +327,12 @@ def download():
     elif options.get('format'):
         cmd.extend(['-f', options['format']])
     
-    if options.get('output_template'):
-        cmd.extend(['-o', options['output_template']])
-    else:
-        cmd.extend(['-o', '%(title)s.%(ext)s'])
+    try:
+        output_template = _build_output_template(options.get('output_template'))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+
+    cmd.extend(['-o', output_template])
     
     if options.get('audio_format'):
         cmd.extend(['--audio-format', options['audio_format']])
@@ -284,7 +412,6 @@ def download():
         session_id = os.urandom(8).hex()
     
     # Log download details
-    active_opts = [k for k, v in options.items() if v and v is not True or (isinstance(v, bool) and v)]
     opt_summary = ', '.join(f'{k}={v}' for k, v in options.items() if v and k not in ('format', 'output_template'))
     log('DOWNLOAD', f'Started (session: {session_id[:8]})')
     log('DOWNLOAD', f'URL: {url}')
@@ -425,6 +552,9 @@ def get_playlist_metadata():
     
     if not url:
         return jsonify({'error': 'URL is required'}), 400
+
+    if not _is_allowed_youtube_url(url):
+        return jsonify({'error': 'Only YouTube playlist URLs are allowed'}), 400
     
     # Detect auto-generated radio/mix playlists (RDAMVM, RD, RDCLAK, etc.)
     # These can have thousands of items, so we limit them
@@ -432,7 +562,7 @@ def get_playlist_metadata():
     max_items = 50 if is_radio_playlist else 100  # Limit radio to 50, others to 100
     
     # Use yt-dlp to get playlist metadata with limit
-    cmd = ['yt-dlp', '--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
+    cmd = [_get_yt_dlp_executable(), '--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -473,13 +603,14 @@ def get_playlist_metadata():
 def list_downloads():
     """List all downloaded files"""
     try:
+        _ensure_app_dirs()
         files = []
         # Include video, audio, and subtitle files
         extensions = ('.mp4', '.webm', '.mp3', '.m4a', '.flac', '.wav', '.opus', 
                      '.vtt', '.srt', '.lrc')
-        for filename in os.listdir('.'):
+        for filename in os.listdir(DOWNLOADS_DIR):
             if filename.endswith(extensions):
-                file_path = os.path.join('.', filename)
+                file_path = os.path.join(DOWNLOADS_DIR, filename)
                 files.append({
                     'name': filename,
                     'size': os.path.getsize(file_path),
@@ -489,19 +620,17 @@ def list_downloads():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/download-file/<filename>')
+@app.route('/download-file/<path:filename>')
 def download_file(filename):
     """Serve a downloaded file"""
     try:
-        # Security check: prevent directory traversal
-        if '..' in filename or '/' in filename or '\\' in filename:
-            return jsonify({'error': 'Invalid filename'}), 400
-
-        file_path = os.path.join('.', filename)
+        file_path, safe_name = _resolve_download_path(filename)
         if not os.path.exists(file_path):
             return jsonify({'error': 'File not found'}), 404
 
-        return send_file(file_path, as_attachment=True, download_name=filename)
+        return send_file(file_path, as_attachment=True, download_name=safe_name)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -509,33 +638,17 @@ def download_file(filename):
 def delete_file(filename):
     """Delete a downloaded file"""
     try:
-        import urllib.parse
-        
-        # If the filename contains %, it might still be URL-encoded, so decode it
-        if '%' in filename:
-            filename = urllib.parse.unquote(filename)
-        
-        # Security check: prevent directory traversal
-        # Use os.path.normpath to resolve any '..' sequences, then verify
-        # the resolved path stays within the current directory
-        if filename.startswith('/') or '\\' in filename:
-            return jsonify({'error': 'Invalid filename'}), 400
-        
-        file_path = os.path.join('.', filename)
-        resolved = os.path.realpath(file_path)
-        cwd = os.path.realpath('.')
-        
-        if not resolved.startswith(cwd + os.sep) and resolved != cwd:
-            return jsonify({'error': 'Invalid filename'}), 400
-
+        resolved, safe_name = _resolve_download_path(filename)
         if not os.path.exists(resolved):
             return jsonify({'error': 'File not found'}), 404
 
         os.remove(resolved)
         return jsonify({
             'success': True,
-            'message': f'File "{filename}" deleted successfully'
+            'message': f'File "{safe_name}" deleted successfully'
         })
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -549,7 +662,7 @@ def get_video_info():
         return jsonify({'error': 'URL is required'}), 400
     
     # Validate URL format
-    if not ('youtube.com' in url or 'youtu.be' in url):
+    if not _is_allowed_youtube_url(url):
         return jsonify({'error': 'Invalid YouTube URL'}), 400
     
     # Check if this is a playlist URL
@@ -560,7 +673,7 @@ def get_video_info():
         playlist_flag = ['--playlist-items', '1']
     else:
         playlist_flag = ['--no-playlist']
-    cmd = ['yt-dlp', '--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
+    cmd = [_get_yt_dlp_executable(), '--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -649,23 +762,8 @@ def _get_ssl_context():
     try:
         import certifi
         return ssl.create_default_context(cafile=certifi.where())
-    except ImportError:
-        pass
-    
-    # Try system certificates
-    try:
-        ctx = ssl.create_default_context()
-        # Test if it works by checking it has CA certs loaded
-        if ctx.cert_store_stats()['x509_ca'] > 0:
-            return ctx
     except Exception:
-        pass
-    
-    # Fallback: unverified context (safe for public YouTube thumbnails only)
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
+        return ssl.create_default_context()
 
 @app.route('/thumbnail-proxy')
 def thumbnail_proxy():
@@ -674,6 +772,9 @@ def thumbnail_proxy():
     
     if not thumbnail_url:
         return jsonify({'error': 'URL parameter required'}), 400
+
+    if not _is_allowed_thumbnail_url(thumbnail_url):
+        return jsonify({'error': 'Invalid thumbnail URL'}), 400
     
     try:
         # For YouTube thumbnails, try to get a better format
@@ -704,8 +805,12 @@ def thumbnail_proxy():
                 })
                 
                 with urllib.request.urlopen(req, timeout=10, context=ssl_ctx) as response:
-                    data = response.read()
                     content_type = response.headers.get('Content-Type', 'image/jpeg')
+                    if not content_type.startswith('image/'):
+                        return jsonify({'error': 'Invalid thumbnail response'}), 400
+                    data = response.read(THUMBNAIL_MAX_BYTES + 1)
+                    if len(data) > THUMBNAIL_MAX_BYTES:
+                        return jsonify({'error': 'Thumbnail too large'}), 413
                     
                 return send_file(
                     io.BytesIO(data),
@@ -720,8 +825,7 @@ def thumbnail_proxy():
                 
     except Exception as e:
         log('ERROR', f'Thumbnail proxy: {e}')
-        # Return a redirect to the original URL as fallback
-        return redirect(thumbnail_url, code=302)
+        return jsonify({'error': 'Failed to fetch thumbnail'}), 502
 
 @app.route('/server-settings', methods=['POST'])
 def save_server_settings():
@@ -731,25 +835,22 @@ def save_server_settings():
     
     if not port or not isinstance(port, int) or port < 1024 or port > 65535:
         return jsonify({'error': 'Invalid port number. Must be between 1024 and 65535.'}), 400
-    
-    config_dir = os.path.expanduser('~/.yt-dlp-desktop')
-    config_path = os.path.join(config_dir, 'config.json')
-    
+
     try:
         # Create config directory if it doesn't exist
-        os.makedirs(config_dir, exist_ok=True)
+        os.makedirs(APP_DIR, exist_ok=True)
         
         # Read existing config or create new
         config = {}
-        if os.path.exists(config_path):
-            with open(config_path, 'r') as f:
+        if os.path.exists(CONFIG_PATH):
+            with open(CONFIG_PATH, 'r') as f:
                 config = json.load(f)
         
         # Update server port
         config['serverPort'] = port
         
         # Save config
-        with open(config_path, 'w') as f:
+        with open(CONFIG_PATH, 'w') as f:
             json.dump(config, f, indent=2)
         
         return jsonify({
@@ -763,19 +864,17 @@ def save_server_settings():
 @app.route('/server-settings', methods=['GET'])
 def get_server_settings():
     """Get current server settings from config file"""
-    config_path = os.path.expanduser('~/.yt-dlp-desktop/config.json')
-    
     config = {}
-    if os.path.exists(config_path):
+    if os.path.exists(CONFIG_PATH):
         try:
-            with open(config_path, 'r') as f:
+            with open(CONFIG_PATH, 'r') as f:
                 config = json.load(f)
         except Exception as e:
             return jsonify({'error': f'Failed to read config: {str(e)}'}), 500
     
     return jsonify({
         'serverPort': config.get('serverPort', int(os.getenv('PORT', 8080))),
-        'configPath': config_path
+        'configPath': CONFIG_PATH
     })
 
 def _cleanup_processes():
@@ -800,13 +899,22 @@ def _is_port_available(port):
     """Check if a port is available"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
-            s.bind(('0.0.0.0', port))
+            s.bind(('127.0.0.1', port))
             return True
         except socket.error:
             return False
 
 def _check_yt_dlp():
     """Check if yt-dlp is available"""
+    bundled = _get_bundled_yt_dlp_path()
+    if bundled:
+        try:
+            result = subprocess.run([bundled, '--version'], capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+
     try:
         result = subprocess.run(['yt-dlp', '--version'], capture_output=True, text=True, timeout=10)
         if result.returncode == 0:
@@ -815,22 +923,7 @@ def _check_yt_dlp():
         pass
     except Exception:
         pass
-    
-    # Check bundled yt-dlp (PyInstaller)
-    if getattr(sys, 'frozen', False):
-        bundle_dir = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(sys.executable)
-        bundled = os.path.join(bundle_dir, 'bin', 'yt-dlp')
-        if sys.platform == 'win32':
-            bundled += '.exe'
-        if os.path.exists(bundled):
-            os.environ['PATH'] = os.path.join(bundle_dir, 'bin') + os.pathsep + os.environ.get('PATH', '')
-            try:
-                result = subprocess.run([bundled, '--version'], capture_output=True, text=True, timeout=10)
-                if result.returncode == 0:
-                    return result.stdout.strip()
-            except Exception:
-                pass
-    
+
     return None
 
 def _open_browser(port):
@@ -887,7 +980,8 @@ if __name__ == '__main__':
     else:
         log('ERROR', 'yt-dlp not found! Install it: pip install yt-dlp')
     
-    log('SERVER', f'Downloads dir: {os.path.abspath(".")}')
+    _ensure_app_dirs()
+    log('SERVER', f'Downloads dir: {DOWNLOADS_DIR}')
     
     # Check for yt-dlp updates in background
     if yt_dlp_version:
@@ -900,11 +994,10 @@ if __name__ == '__main__':
     
     # Determine port
     config_port = None
-    config_path = os.path.expanduser('~/.yt-dlp-desktop/config.json')
     
-    if os.path.exists(config_path):
+    if os.path.exists(CONFIG_PATH):
         try:
-            with open(config_path, 'r') as f:
+            with open(CONFIG_PATH, 'r') as f:
                 config = json.load(f)
                 config_port = config.get('serverPort')
         except Exception:
@@ -951,7 +1044,7 @@ if __name__ == '__main__':
             if 'Serving Flask app' in msg or 'Debug mode' in msg or 'WARNING: This is a development server' in msg or 'Use a production WSGI server' in msg or 'Press CTRL+C to quit' in msg:
                 return False
             # Skip noisy requests (static files, polling, thumbnails)
-            if '/static/' in msg or '/favicon' in msg or '/thumbnail-proxy' in msg or '/progress/' in msg or 'GET /downloads' in msg or '/server-settings' in msg or '/check-update' in msg:
+            if '/static/' in msg or '/favicon' in msg or '/thumbnail-proxy' in msg or '/progress/' in msg or 'GET /downloads' in msg or '/download-file/' in msg or '/stream/' in msg or '/server-settings' in msg or '/check-update' in msg:
                 return False
             # Route HTTP request logs through our logger
             if record.levelno <= _logging.INFO:
@@ -973,4 +1066,4 @@ if __name__ == '__main__':
     click.echo = echo
     click.secho = secho
     
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='127.0.0.1', port=port)
