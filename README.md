@@ -2,7 +2,9 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/VenimK/YT-DLP-Desktop)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64)
 [![GitHub Release Date](https://img.shields.io/github/release-date/VenimK/YT-DLP-Desktop?style=flat)](https://github.com/VenimK/YT-DLP-Desktop/releases)
-[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+latest&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/tag/v1.0.0)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+Linux&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-linux-x64)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+Windows&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-windows-x64.exe)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+macOS+ARM64&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.0/yt-dlp-desktop-macos-arm64)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
