@@ -2,9 +2,9 @@
 
 [![GitHub Release](https://img.shields.io/github/v/release/VenimK/YT-DLP-Desktop)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest/download/yt-dlp-desktop-macos-arm64.zip)
 [![GitHub Release Date](https://img.shields.io/github/release-date/VenimK/YT-DLP-Desktop?style=flat)](https://github.com/VenimK/YT-DLP-Desktop/releases)
-[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/yt-dlp-desktop-linux-x64?style=flat&label=⬇+Linux&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.1/yt-dlp-desktop-linux-x64)
-[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/yt-dlp-desktop-windows-x64.exe?style=flat&label=⬇+Windows&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.1/yt-dlp-desktop-windows-x64.exe)
-[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/yt-dlp-desktop-macos-arm64.zip?style=flat&label=⬇+macOS+ARM64&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.1/yt-dlp-desktop-macos-arm64.zip)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/yt-dlp-desktop-linux-x64?style=flat&label=⬇+Linux&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-linux-x64)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/yt-dlp-desktop-windows-x64.exe?style=flat&label=⬇+Windows&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-windows-x64.exe)
+[![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/yt-dlp-desktop-macos-arm64.zip?style=flat&label=⬇+macOS+ARM64&color=orange)](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-macos-arm64.zip)
 [![GitHub Downloads Latest](https://img.shields.io/github/downloads/VenimK/YT-DLP-Desktop/latest/total?style=flat&label=⬇+Total&color=blue)](https://github.com/VenimK/YT-DLP-Desktop/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -16,13 +16,14 @@ Enjoy my projects? Any support is greatly appreciated!
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/venimK)
 
 
-A modern, cross-platform YouTube downloader desktop application built with Flask and modern web technologies. Features a beautiful glassmorphism UI, real-time download progress, playlist support, and more.
+A modern, cross-platform video/audio downloader desktop application built with Flask and modern web technologies. Features a beautiful glassmorphism UI, real-time download progress, playlist support, and support for 13+ platforms including YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, Twitter/X, Instagram, Facebook, Reddit, Dailymotion, Bilibili, and PeerTube.
 
 ![YT-DLP Desktop Screenshot](screenshot.png)
 
 ## ✨ Features
 
-- 🎨 **Modern Glassmorphism UI** - Beautiful interface with animated backgrounds
+- � **Multi-Platform Support** - Download from 13+ platforms: YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, Twitter/X, Instagram, Facebook, Reddit, Dailymotion, Bilibili, PeerTube, and more
+- �� **Modern Glassmorphism UI** - Beautiful interface with animated backgrounds
 - 🌓 **Dark/Light Mode** - Toggle between themes
 - 📥 **Real-time Progress** - Live download progress with speed and ETA
 - 📝 **Playlist Support** - Download entire playlists or select specific videos
@@ -35,14 +36,14 @@ A modern, cross-platform YouTube downloader desktop application built with Flask
 
 ## 🚀 Download
 
-Pre-built executables are available on the [Releases](https://github.com/YOUR_USERNAME/YT-DLP-Desktop/releases) page.
+Pre-built executables are available on the [Releases](https://github.com/VenimK/YT-DLP-Desktop/releases) page.
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | `yt-dlp-desktop-macos-arm64` |
-| macOS (Intel) | `yt-dlp-desktop-macos-x64` |
-| Windows | `yt-dlp-desktop-windows-x64.exe` |
-| Linux | `yt-dlp-desktop-linux-x64` |
+| macOS (Apple Silicon) | [yt-dlp-desktop-macos-arm64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-macos-arm64.zip) |
+| macOS (Intel) | [yt-dlp-desktop-macos-x64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-macos-x64.zip) |
+| Windows | [yt-dlp-desktop-windows-x64.exe](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-windows-x64.exe) |
+| Linux | [yt-dlp-desktop-linux-x64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.2/yt-dlp-desktop-linux-x64) |
 
 ## 🛠️ Installation
 

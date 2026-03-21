@@ -33,7 +33,7 @@ const Downloads = {
     
     const url = document.getElementById('url').value;
     if (!url) {
-      UI.toast.error('Please enter a YouTube URL');
+      UI.toast.error('Please enter a video or audio URL');
       return;
     }
     

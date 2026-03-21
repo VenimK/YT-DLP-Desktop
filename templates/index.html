@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YT-DLP Desktop - YouTube Downloader</title>
+  <title>YT-DLP Desktop - Video/Audio Downloader</title>
   
   <!-- Font Awesome -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -24,7 +24,7 @@
         <i class="fas fa-moon"></i> Dark Mode
       </button>
       <h1><i class="fas fa-download"></i> YT-DLP Desktop</h1>
-      <p>Download YouTube videos with advanced options and real-time progress</p>
+      <p>Download videos and audio from multiple platforms with advanced options and real-time progress</p>
       
       <!-- Video Preview -->
       <div id="videoPreview" class="preview-card">
@@ -70,13 +70,13 @@
       <!-- Drop Zone -->
       <div id="dropZone" class="drop-zone">
         <i class="fas fa-cloud-upload-alt"></i>
-        <p>Drag & drop YouTube URL here or click to paste</p>
+        <p>Drag & drop video/audio URL here or click to paste</p>
       </div>
       
-      <!-- YouTube Search -->
+      <!-- Video Search -->
       <div class="search-section">
         <div class="search-bar">
-          <input type="text" id="searchInput" placeholder="Search YouTube..." autocomplete="off">
+          <input type="text" id="searchInput" placeholder="Search videos..." autocomplete="off">
           <button type="button" id="searchClear" class="search-clear" style="display:none;"><i class="fas fa-times"></i></button>
           <button type="button" id="searchBtn" class="btn btn-sm"><i class="fas fa-search"></i> Search</button>
         </div>
@@ -99,7 +99,7 @@
           <div>
             <!-- URL Input -->
             <div class="form-group">
-              <label class="form-label" for="url"><i class="fas fa-link"></i> YouTube URL</label>
+              <label class="form-label" for="url"><i class="fas fa-link"></i> Video/Audio URL</label>
               <input type="text" id="url" name="url" class="form-input" 
                      placeholder="https://www.youtube.com/watch?v=..." required>
               <button type="button" id="fetchPlaylistBtn" class="btn btn-sm" style="margin-top: 10px;">

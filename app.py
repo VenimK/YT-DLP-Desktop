@@ -59,16 +59,38 @@ CONFIG_PATH = os.path.join(APP_DIR, 'config.json')
 AUTH_COOKIE_NAME = 'yt_dlp_desktop_auth'
 SESSION_TOKEN = os.urandom(24).hex()
 
-ALLOWED_YOUTUBE_HOSTS = {
-    'youtube.com',
-    'www.youtube.com',
-    'm.youtube.com',
-    'music.youtube.com',
-    'youtu.be',
+ALLOWED_PLATFORM_HOSTS = {
+    # YouTube
+    'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be',
+    # SoundCloud
+    'soundcloud.com', 'm.soundcloud.com',
+    # Bandcamp
+    'bandcamp.com',
+    # Vimeo
+    'vimeo.com',
+    # TikTok
+    'tiktok.com', 'www.tiktok.com', 'vm.tiktok.com',
+    # Twitter/X
+    'twitter.com', 'x.com', 'www.twitter.com',
+    # Instagram
+    'instagram.com', 'www.instagram.com',
+    # Facebook
+    'facebook.com', 'www.facebook.com', 'fb.watch',
+    # Reddit
+    'reddit.com', 'www.reddit.com', 'v.redd.it',
+    # Dailymotion
+    'dailymotion.com', 'www.dailymotion.com',
+    # Bilibili
+    'bilibili.com', 'www.bilibili.com',
+    # PeerTube (common instances)
+    'peertube.tv', 'peertube.video', 'peertube.social', 'tube.openalgerie.com',
 }
 
 ALLOWED_THUMBNAIL_HOSTS = {
     'img.youtube.com',
+    'f4.bcbits.com',  # Bandcamp
+    'i.scdn.co',     # Spotify/SoundCloud
+    'i.vimeocdn.com', # Vimeo
 }
 
 
@@ -101,7 +123,7 @@ def _ensure_app_dirs():
 
 
 def _is_allowed_youtube_url(url):
-    """Allow only normal YouTube watch/playlist/share URLs."""
+    """Allow URLs from supported video/audio platforms."""
     try:
         parsed = urllib.parse.urlparse(url)
     except Exception:
@@ -111,7 +133,7 @@ def _is_allowed_youtube_url(url):
         return False
 
     host = parsed.hostname.lower()
-    return host in ALLOWED_YOUTUBE_HOSTS or host.endswith('.youtube.com')
+    return host in ALLOWED_PLATFORM_HOSTS or host.endswith('.youtube.com') or host.endswith('.bandcamp.com') or host.endswith('.peertube')
 
 
 def _is_allowed_thumbnail_url(url):
@@ -316,7 +338,7 @@ def download():
         return jsonify({'error': 'URL is required'}), 400
 
     if not _is_allowed_youtube_url(url):
-        return jsonify({'error': 'Only YouTube URLs are allowed'}), 400
+        return jsonify({'error': 'Only supported platform URLs are allowed'}), 400
     
     cmd = [_get_yt_dlp_executable(), '--newline', '--console-title']
     
@@ -554,7 +576,7 @@ def get_playlist_metadata():
         return jsonify({'error': 'URL is required'}), 400
 
     if not _is_allowed_youtube_url(url):
-        return jsonify({'error': 'Only YouTube playlist URLs are allowed'}), 400
+        return jsonify({'error': 'Only supported platform playlist URLs are allowed'}), 400
     
     # Detect auto-generated radio/mix playlists (RDAMVM, RD, RDCLAK, etc.)
     # These can have thousands of items, so we limit them
@@ -958,6 +980,46 @@ _update_info = {'current': None, 'latest': None, 'checked': False}
 def check_update():
     """Return yt-dlp version and update status"""
     return jsonify(_update_info)
+
+@app.route('/test-platform', methods=['POST'])
+def test_platform():
+    """Test if a URL from a specific platform works with yt-dlp"""
+    data = request.json
+    url = data.get('url', '')
+    
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+    
+    if not _is_allowed_youtube_url(url):
+        return jsonify({'error': 'Platform not supported'}), 400
+    
+    try:
+        cmd = [_get_yt_dlp_executable(), '--simulate', '--no-download', '--dump-json', url]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        
+        if result.returncode == 0:
+            # Parse first line of JSON to get basic info
+            lines = result.stdout.strip().split('\n')
+            if lines:
+                try:
+                    video_data = json.loads(lines[0])
+                    return jsonify({
+                        'supported': True,
+                        'title': video_data.get('title'),
+                        'duration': video_data.get('duration'),
+                        'platform': video_data.get('extractor_key', 'Unknown')
+                    })
+                except json.JSONDecodeError:
+                    return jsonify({'supported': True, 'title': None})
+        else:
+            return jsonify({
+                'supported': False,
+                'error': result.stderr[:200] if result.stderr else 'Unknown error'
+            })
+    except subprocess.TimeoutExpired:
+        return jsonify({'supported': False, 'error': 'Request timed out'}), 500
+    except Exception as e:
+        return jsonify({'supported': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     # Register signal handlers for clean shutdown

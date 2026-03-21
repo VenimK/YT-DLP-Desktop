@@ -1,5 +1,5 @@
 /**
- * SEARCH.JS - YouTube Search In-App
+ * SEARCH.JS - Video Search In-App
  */
 
 const Search = {
@@ -58,7 +58,7 @@ const Search = {
     container.innerHTML = `
       <div class="search-loading">
         <div class="spinner"></div>
-        <span>Searching YouTube...</span>
+        <span>Searching...</span>
       </div>
     `;
   },

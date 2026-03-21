@@ -109,12 +109,13 @@ const App = {
       });
     }
     
-    // URL input with debounced preview
+    // URL input with debounced preview - works with any supported platform
     const urlInput = document.getElementById('url');
     if (urlInput) {
       urlInput.addEventListener('input', Utils.debounce((e) => {
         const url = e.target.value;
-        if (url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('music.youtube.com'))) {
+        // Trigger preview for any URL that looks like a video/audio link
+        if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
           this.fetchVideoPreview(url);
         }
       }, 500));
@@ -170,7 +171,8 @@ const App = {
       },
       onDrop: (e) => {
         const text = e.dataTransfer.getData('text');
-        if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+        // Accept any URL that looks like a video/audio link
+        if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
           const urlInput = document.getElementById('url');
           if (urlInput) {
             urlInput.value = text;
@@ -181,7 +183,8 @@ const App = {
       onClick: async () => {
         try {
           const text = await navigator.clipboard.readText();
-          if (text && (text.includes('youtube.com') || text.includes('youtu.be'))) {
+          // Accept any URL that looks like a video/audio link
+          if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
             const urlInput = document.getElementById('url');
             if (urlInput) {
               urlInput.value = text;

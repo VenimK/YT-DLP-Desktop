@@ -40,7 +40,7 @@ const Playlist = {
     const btn = document.getElementById('fetchPlaylistBtn');
     
     if (!url) {
-      UI.toast.warning('Please enter a YouTube URL first');
+      UI.toast.warning('Please enter a video or audio URL first');
       return;
     }
     
