@@ -82,18 +82,33 @@ jobs:
           fi
     
     - name: Build with PyInstaller (optimized)
+      shell: bash
       run: |
-        pyinstaller --onefile \
-          --add-data "templates:templates" \
-          --add-data "static:static" \
-          --add-binary "bin/yt-dlp:bin" \
-          --hidden-import yt_dlp \
-          --hidden-import certifi \
-          --exclude-module tkinter \
-          --exclude-module unittest \
-          --name ${{ matrix.artifact }} \
-          --clean \
-          app.py
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          pyinstaller --onefile \
+            --add-data "templates;templates" \
+            --add-data "static;static" \
+            --add-binary "bin/yt-dlp.exe;bin" \
+            --hidden-import yt_dlp \
+            --hidden-import certifi \
+            --exclude-module tkinter \
+            --exclude-module unittest \
+            --name ${{ matrix.artifact }} \
+            --clean \
+            app.py
+        else
+          pyinstaller --onefile \
+            --add-data "templates:templates" \
+            --add-data "static:static" \
+            --add-binary "bin/yt-dlp:bin" \
+            --hidden-import yt_dlp \
+            --hidden-import certifi \
+            --exclude-module tkinter \
+            --exclude-module unittest \
+            --name ${{ matrix.artifact }} \
+            --clean \
+            app.py
+        fi
     
     - name: Ad-hoc code sign (macOS)
       if: startsWith(matrix.name, 'macos')
