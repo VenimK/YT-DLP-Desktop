@@ -5,6 +5,7 @@
 const App = {
   // Initialize the application
   init() {
+    this.initStorage();
     this.initUI();
     this.initModules();
     this.setupEventListeners();
@@ -13,7 +14,29 @@ const App = {
     this.initServerSettings();
     this.renderDownloadHistory();
     
+    // Initialize performance optimizations
+    LazyLoader.setup();
+    
     console.log('🚀 YT-DLP Desktop initialized');
+  },
+
+  // Initialize storage and load saved data
+  initStorage() {
+    // Load saved preferences
+    const prefs = Storage.loadPreferences();
+    if (prefs.theme) {
+      document.documentElement.setAttribute('data-theme', prefs.theme);
+      this.updateThemeToggle(prefs.theme);
+    }
+    if (prefs.advancedOptions) {
+      UI.accordion.show('advancedOptions');
+    }
+    
+    // Load download history
+    const history = Storage.loadDownloadHistory();
+    if (history.length > 0) {
+      Downloads.setHistory(history);
+    }
   },
   
   // Initialize UI components
@@ -131,29 +154,40 @@ const App = {
   // Setup keyboard shortcuts
   setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
-      // Ctrl+D: Focus URL input
-      if (e.ctrlKey && e.key === 'd') {
+      // Only handle shortcuts when not typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
+      // Ctrl/Cmd + K: Focus URL input
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('url').focus();
+      }
+      
+      // Ctrl/Cmd + Enter: Start download
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault();
         const urlInput = document.getElementById('url');
-        if (urlInput) urlInput.focus();
+        if (urlInput.value.trim()) {
+          document.getElementById('downloadBtn').click();
+        }
       }
       
-      // Ctrl+Q: Clear form
-      if (e.ctrlKey && e.key === 'q') {
+      // Ctrl/Cmd + D: Toggle dark mode
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        this.clearForm();
+        this.toggleTheme();
       }
       
-      // Ctrl+Enter: Submit form
-      if (e.ctrlKey && e.key === 'Enter') {
+      // Ctrl/Cmd + L: Clear URL input
+      if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
         e.preventDefault();
-        const form = document.getElementById('downloadForm');
-        if (form) form.dispatchEvent(new Event('submit'));
+        document.getElementById('url').value = '';
+        document.getElementById('url').focus();
       }
       
-      // Escape: Close lyrics
+      // Escape: Clear preview
       if (e.key === 'Escape') {
-        Lyrics.close();
+        this.clearPreview();
       }
     });
   },

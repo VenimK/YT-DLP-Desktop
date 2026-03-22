@@ -2,6 +2,107 @@
    COMPONENTS.CSS - UI Components
    ======================================== */
 
+/* Bandwidth Display */
+.bandwidth-display {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.bandwidth-display:hover {
+  background: var(--glass-bg-hover);
+  transform: translateY(-1px);
+}
+
+.bandwidth-display i {
+  color: var(--primary);
+}
+
+/* Dark mode bandwidth display */
+[data-theme="dark"] .bandwidth-display {
+  color: var(--gray-300);
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Lazy loading images */
+.lazy {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: var(--gray-100);
+  border-radius: 4px;
+}
+
+.lazy.loaded {
+  opacity: 1;
+}
+
+[data-theme="dark"] .lazy {
+  background: var(--gray-700);
+}
+
+/* Responsive images */
+.responsive-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+/* Loading skeletons for better perceived performance */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-text {
+  height: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-text.small {
+  height: 0.8rem;
+  width: 60%;
+}
+
+.skeleton-text.large {
+  height: 1.2rem;
+  width: 80%;
+}
+
+.skeleton-thumbnail {
+  width: 120px;
+  height: 68px;
+  border-radius: 8px;
+}
+
+.skeleton-card {
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+/* Dark mode skeletons */
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
 /* Main Container */
 .app-container {
   max-width: 1100px;

@@ -5,11 +5,67 @@
 const Downloads = {
   activeDownloads: new Map(),
   pollInterval: null,
+  bandwidthStats: {
+    totalBytes: 0,
+    startTime: null,
+    currentSpeed: 0,
+    peakSpeed: 0
+  },
   
   // Initialize downloads module
   init() {
     this.setupEventListeners();
     this.loadDownloads();
+    this.initBandwidthMonitor();
+  },
+
+  // Initialize bandwidth monitoring
+  initBandwidthMonitor() {
+    // Update bandwidth display every 2 seconds
+    setInterval(() => {
+      this.updateBandwidthDisplay();
+    }, 2000);
+  },
+
+  // Update bandwidth display
+  updateBandwidthDisplay() {
+    const bandwidthEl = document.getElementById('bandwidthDisplay');
+    if (!bandwidthEl) return;
+
+    if (this.activeDownloads.size === 0) {
+      bandwidthEl.innerHTML = '<i class="fas fa-tachometer-alt"></i> No active downloads';
+      return;
+    }
+
+    const totalSpeed = this.calculateTotalSpeed();
+    const speedText = Utils.formatSpeed(totalSpeed);
+    const peakSpeedText = Utils.formatSpeed(this.bandwidthStats.peakSpeed);
+    
+    bandwidthEl.innerHTML = `
+      <i class="fas fa-tachometer-alt"></i> 
+      Current: ${speedText} | Peak: ${peakSpeedText}
+    `;
+  },
+
+  // Calculate total download speed
+  calculateTotalSpeed() {
+    let totalSpeed = 0;
+    this.activeDownloads.forEach(download => {
+      if (download.speed) {
+        totalSpeed += parseFloat(download.speed.replace(/[^0-9.]/g, ''));
+      }
+    });
+    return totalSpeed;
+  },
+
+  // Update bandwidth statistics
+  updateBandwidthStats(speed) {
+    const numericSpeed = parseFloat(speed.replace(/[^0-9.]/g, ''));
+    this.bandwidthStats.currentSpeed = numericSpeed;
+    
+    if (numericSpeed > this.bandwidthStats.peakSpeed) {
+      this.bandwidthStats.peakSpeed = numericSpeed;
+    }
   },
   
   // Setup event listeners

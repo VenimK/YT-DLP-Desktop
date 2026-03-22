@@ -49,7 +49,156 @@ function formatFileSize(bytes) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-// Format download speed
+// Lazy loading for images
+const LazyLoader = {
+  // Initialize lazy loading
+  init() {
+    if ('IntersectionObserver' in window) {
+      this.observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            this.loadImage(entry.target);
+          }
+        });
+      }, {
+        rootMargin: '50px 0px',
+        threshold: 0.01
+      });
+    }
+  },
+
+  // Observe an image for lazy loading
+  observe(img) {
+    if (this.observer) {
+      this.observer.observe(img);
+    } else {
+      // Fallback for browsers without IntersectionObserver
+      this.loadImage(img);
+    }
+  },
+
+  // Load the actual image
+  loadImage(img) {
+    const src = img.dataset.src;
+    if (src) {
+      img.src = src;
+      img.classList.remove('lazy');
+      img.classList.add('loaded');
+      if (this.observer) {
+        this.observer.unobserve(img);
+      }
+    }
+  },
+
+  // Setup lazy loading for all images with data-src
+  setup() {
+    this.init();
+    document.querySelectorAll('img[data-src]').forEach(img => {
+      this.observe(img);
+    });
+  }
+};
+
+// Image optimization utilities
+const ImageOptimizer = {
+  // Convert to WebP if supported
+  getOptimizedUrl(originalUrl, width = null, height = null) {
+    if (!originalUrl) return '';
+    
+    // Check WebP support
+    const supportsWebP = document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    
+    // For YouTube thumbnails, we can optimize
+    if (originalUrl.includes('ytimg.com')) {
+      let optimizedUrl = originalUrl;
+      
+      // Add size parameters
+      if (width || height) {
+        const size = width || height;
+        optimizedUrl = optimizedUrl.replace('/default.', `/${size}.`);
+      }
+      
+      // Use WebP if supported
+      if (supportsWebP) {
+        optimizedUrl = optimizedUrl.replace(/\.(jpg|jpeg|png)$/i, '.webp');
+      }
+      
+      return optimizedUrl;
+    }
+    
+    return originalUrl;
+  },
+
+  // Create responsive image markup
+  createResponsiveImage(src, alt, className = '') {
+    const webpSrc = this.getOptimizedUrl(src);
+    const regularSrc = this.getOptimizedUrl(src, 320);
+    
+    return `
+      <picture>
+        ${webpSrc !== src ? `<source srcset="${webpSrc}" type="image/webp">` : ''}
+        <img 
+          src="${regularSrc}" 
+          data-src="${src}"
+          alt="${alt}" 
+          class="${className} lazy" 
+          loading="lazy"
+        />
+      </picture>
+    `;
+  }
+};
+const Storage = {
+  // Save download history
+  saveDownloadHistory(downloads) {
+    try {
+      localStorage.setItem('yt-dlp-download-history', JSON.stringify(downloads));
+    } catch (e) {
+      console.warn('Failed to save download history:', e);
+    }
+  },
+
+  // Load download history
+  loadDownloadHistory() {
+    try {
+      const saved = localStorage.getItem('yt-dlp-download-history');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.warn('Failed to load download history:', e);
+      return [];
+    }
+  },
+
+  // Save user preferences
+  savePreferences(prefs) {
+    try {
+      localStorage.setItem('yt-dlp-preferences', JSON.stringify(prefs));
+    } catch (e) {
+      console.warn('Failed to save preferences:', e);
+    }
+  },
+
+  // Load user preferences
+  loadPreferences() {
+    try {
+      const saved = localStorage.getItem('yt-dlp-preferences');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      console.warn('Failed to load preferences:', e);
+      return {};
+    }
+  },
+
+  // Clear all storage
+  clear() {
+    try {
+      localStorage.removeItem('yt-dlp-download-history');
+      localStorage.removeItem('yt-dlp-preferences');
+    } catch (e) {
+      console.warn('Failed to clear storage:', e);
+    }
+  }
+};
 function formatSpeed(speedStr) {
   if (!speedStr) return '0 KB/s';
   return speedStr;
