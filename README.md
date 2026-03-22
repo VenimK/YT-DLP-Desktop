@@ -41,7 +41,6 @@ Pre-built executables are available on the [Releases](https://github.com/VenimK/
 | Platform | Download |
 |----------|----------|
 | macOS (Apple Silicon) | [yt-dlp-desktop-macos-arm64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-macos-arm64.zip) |
-| macOS (Intel) | [yt-dlp-desktop-macos-x64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-macos-x64.zip) |
 | Windows | [yt-dlp-desktop-windows-x64.exe](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-windows-x64.exe) |
 | Linux | [yt-dlp-desktop-linux-x64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-linux-x64) |
 

@@ -16,10 +16,6 @@ jobs:
             name: macos-arm64
             binary: yt-dlp_macos
             artifact: yt-dlp-desktop-macos-arm64
-          - os: macos-14
-            name: macos-x64
-            binary: yt-dlp_macos
-            artifact: yt-dlp-desktop-macos-x64
           - os: windows-latest
             name: windows-x64
             binary: yt-dlp.exe
@@ -86,33 +82,18 @@ jobs:
           fi
     
     - name: Build with PyInstaller (optimized)
-      shell: bash
       run: |
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          pyinstaller --onefile \
-            --add-data "templates;templates" \
-            --add-data "static;static" \
-            --add-binary "bin/yt-dlp.exe;bin" \
-            --hidden-import yt_dlp \
-            --hidden-import certifi \
-            --exclude-module tkinter \
-            --exclude-module unittest \
-            --name ${{ matrix.artifact }} \
-            --clean \
-            app.py
-        else
-          pyinstaller --onefile \
-            --add-data "templates:templates" \
-            --add-data "static:static" \
-            --add-binary "bin/yt-dlp:bin" \
-            --hidden-import yt_dlp \
-            --hidden-import certifi \
-            --exclude-module tkinter \
-            --exclude-module unittest \
-            --name ${{ matrix.artifact }} \
-            --clean \
-            app.py
-        fi
+        pyinstaller --onefile \
+          --add-data "templates:templates" \
+          --add-data "static:static" \
+          --add-binary "bin/yt-dlp:bin" \
+          --hidden-import yt_dlp \
+          --hidden-import certifi \
+          --exclude-module tkinter \
+          --exclude-module unittest \
+          --name ${{ matrix.artifact }} \
+          --clean \
+          app.py
     
     - name: Ad-hoc code sign (macOS)
       if: startsWith(matrix.name, 'macos')
@@ -120,44 +101,22 @@ jobs:
         codesign --force --deep -s - dist/${{ matrix.artifact }}
     
     - name: Verify executable
-      shell: bash
       run: |
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          ls -la dist/
-          file dist/${{ matrix.artifact }}.exe
-        else
-          ls -lh dist/${{ matrix.artifact }}
-          file dist/${{ matrix.artifact }}
-        fi
+        ls -lh dist/${{ matrix.artifact }}${{ runner.os == 'Windows' && '.exe' || '' }}
+        file dist/${{ matrix.artifact }}${{ runner.os == 'Windows' && '.exe' || '' }}
     
     - name: Test artifact
-      shell: bash
       run: |
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          dist/${{ matrix.artifact }}.exe --version
-        else
-          dist/${{ matrix.artifact }} --version
-        fi
+        dist/${{ matrix.artifact }}${{ runner.os == 'Windows' && '.exe' || '' }} --version
     
     - name: Analyze build size
-      shell: bash
       run: |
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          size=$(stat -c%s dist/${{ matrix.artifact }}.exe)
-          echo "Build size: $(echo "scale=2; $size/1024/1024" | bc) MB"
-        else
-          size=$(stat -c%s dist/${{ matrix.artifact }})
-          echo "Build size: $(echo "scale=2; $size/1024/1024" | bc) MB"
-        fi
+        size=$(stat -c%s dist/${{ matrix.artifact }}${{ runner.os == 'Windows' && '.exe' || '' }})
+        echo "Build size: $(echo "scale=2; $size/1024/1024" | bc) MB"
     
     - name: Basic functionality test
-      shell: bash
       run: |
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          timeout 10 dist/${{ matrix.artifact }}.exe --help || echo "Help test completed"
-        else
-          timeout 10 dist/${{ matrix.artifact }} --help || echo "Help test completed"
-        fi
+        timeout 10 dist/${{ matrix.artifact }}${{ runner.os == 'Windows' && '.exe' || '' }} --help || echo "Help test completed"
     
     - name: Package as zip (macOS)
       if: startsWith(matrix.name, 'macos')
@@ -171,7 +130,7 @@ jobs:
       with:
         name: ${{ matrix.artifact }}
         path: |
-          ${{ startsWith(matrix.name, 'macos') && 'dist/${{ matrix.artifact }}.zip' || (runner.os == 'Windows' && 'dist/${{ matrix.artifact }}.exe' || 'dist/${{ matrix.artifact }}') }}
+          ${{ startsWith(matrix.name, 'macos') && 'dist/${{ matrix.artifact }}.zip' || format('dist/{0}{1}', matrix.artifact, runner.os == 'Windows' && '.exe' || '') }}
         retention-days: 7
 
   release:
@@ -189,7 +148,6 @@ jobs:
       with:
         files: |
           artifacts/yt-dlp-desktop-macos-arm64/yt-dlp-desktop-macos-arm64.zip
-          artifacts/yt-dlp-desktop-macos-x64/yt-dlp-desktop-macos-x64.zip
           artifacts/yt-dlp-desktop-windows-x64/yt-dlp-desktop-windows-x64.exe
           artifacts/yt-dlp-desktop-linux-x64/yt-dlp-desktop-linux-x64
         draft: false
