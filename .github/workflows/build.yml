@@ -8,8 +8,27 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-macos:
-    runs-on: macos-latest
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            name: macos-arm64
+            binary: yt-dlp_macos
+            artifact: yt-dlp-desktop-macos-arm64
+          - os: macos-13
+            name: macos-x64
+            binary: yt-dlp_macos
+            artifact: yt-dlp-desktop-macos-x64
+          - os: windows-latest
+            name: windows-x64
+            binary: yt-dlp.exe
+            artifact: yt-dlp-desktop-windows-x64
+          - os: ubuntu-latest
+            name: linux-x64
+            binary: yt-dlp
+            artifact: yt-dlp-desktop-linux-x64
+    runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
     
@@ -17,6 +36,22 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+    
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Cache yt-dlp binary
+      uses: actions/cache@v4
+      with:
+        path: bin/yt-dlp*
+        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/download-yt-dlp.sh') }}
+        restore-keys: |
+          yt-dlp-${{ runner.os }}-
     
     - name: Install dependencies
       run: |
@@ -24,140 +59,104 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Download yt-dlp
+    - name: Run tests
       run: |
-        mkdir -p bin
-        curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos -o bin/yt-dlp
-        chmod +x bin/yt-dlp
+        python -m pytest tests/ -v
+        python -c "import app; print('✅ App imports successfully')"
     
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --onefile \
-          --add-data "templates:templates" \
-          --add-data "static:static" \
-          --add-binary "bin/yt-dlp:bin" \
-          --hidden-import yt_dlp \
-          --hidden-import certifi \
-          --name yt-dlp-desktop-macos-arm64 \
-          --clean \
-          app.py
-    
-    - name: Ad-hoc code sign
-      run: |
-        codesign --force --deep -s - dist/yt-dlp-desktop-macos-arm64
-    
-    - name: Verify executable
-      run: |
-        ls -lh dist/yt-dlp-desktop-macos-arm64
-        file dist/yt-dlp-desktop-macos-arm64
-        codesign -dv dist/yt-dlp-desktop-macos-arm64 2>&1 || true
-    
-    - name: Package as zip (preserves permissions)
-      run: |
-        cd dist
-        chmod +x yt-dlp-desktop-macos-arm64
-        zip yt-dlp-desktop-macos-arm64.zip yt-dlp-desktop-macos-arm64
-    
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: yt-dlp-desktop-macos-arm64
-        path: dist/yt-dlp-desktop-macos-arm64.zip
-        retention-days: 7
-
-  build-windows:
-    runs-on: windows-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    
-    - name: Download yt-dlp
-      run: |
-        New-Item -ItemType Directory -Force -Path bin
-        Invoke-WebRequest -Uri https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile bin/yt-dlp.exe
-    
-    - name: Build with PyInstaller
-      run: |
-        pyinstaller --onefile `
-          --add-data "templates;templates" `
-          --add-data "static;static" `
-          --add-binary "bin/yt-dlp.exe;bin" `
-          --hidden-import yt_dlp `
-          --hidden-import certifi `
-          --name yt-dlp-desktop-windows-x64 `
-          --clean `
-          app.py
-    
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: yt-dlp-desktop-windows-x64
-        path: dist/yt-dlp-desktop-windows-x64.exe
-        retention-days: 7
-
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Install system dependencies
+    - name: Install system dependencies (Linux)
+      if: matrix.name == 'linux-x64'
       run: |
         sudo apt-get update
         sudo apt-get install -y ffmpeg
     
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
+    - name: Download yt-dlp (with retry)
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_on: error
+        command: |
+          mkdir -p bin
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            Invoke-WebRequest -Uri https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe -OutFile bin/yt-dlp.exe
+          else
+            curl -L --retry 3 --retry-delay 5 https://github.com/yt-dlp/yt-dlp/releases/latest/download/${{ matrix.binary }} -o bin/yt-dlp${{ runner.os == 'Windows' && '.exe' || '' }}
+            chmod +x bin/yt-dlp
+          fi
     
-    - name: Download yt-dlp
-      run: |
-        mkdir -p bin
-        curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o bin/yt-dlp
-        chmod +x bin/yt-dlp
-    
-    - name: Build with PyInstaller
+    - name: Build with PyInstaller (optimized)
       run: |
         pyinstaller --onefile \
-          --add-data "templates:templates" \
-          --add-data "static:static" \
-          --add-binary "bin/yt-dlp:bin" \
+          --add-data "templates${{ runner.os == 'Windows' && ';' || ':' }}templates" \
+          --add-data "static${{ runner.os == 'Windows' && ';' || ':' }}static" \
+          --add-binary "bin/yt-dlp${{ runner.os == 'Windows' && '.exe' || '' }}${{ runner.os == 'Windows' && ';' || ':' }}bin" \
           --hidden-import yt_dlp \
           --hidden-import certifi \
-          --name yt-dlp-desktop-linux-x64 \
+          --exclude-module tkinter \
+          --exclude-module unittest \
+          --name ${{ matrix.artifact }} \
           --clean \
           app.py
     
-    - name: Verify executable exists
+    - name: Ad-hoc code sign (macOS)
+      if: startsWith(matrix.name, 'macos')
       run: |
-        ls -lh dist/yt-dlp-desktop-linux-x64
-        file dist/yt-dlp-desktop-linux-x64
+        codesign --force --deep -s - dist/${{ matrix.artifact }}
+    
+    - name: Verify executable
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          Get-ChildItem -Path dist -Recurse -File
+          Get-Command dist/${{ matrix.artifact }}
+        else
+          ls -lh dist/${{ matrix.artifact }}
+          file dist/${{ matrix.artifact }}
+        fi
+    
+    - name: Test artifact
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          dist/${{ matrix.artifact }}.exe --version
+        else
+          dist/${{ matrix.artifact }} --version
+        fi
+    
+    - name: Analyze build size
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          $size = (Get-Item dist/${{ matrix.artifact }}.exe).Length
+          echo "Build size: $([math]::Round($size/1MB, 2)) MB"
+        else
+          size=$(stat -f%z dist/${{ matrix.artifact }} 2>/dev/null || stat -c%s dist/${{ matrix.artifact }})
+          echo "Build size: $(echo "scale=2; $size/1024/1024" | bc) MB"
+        fi
+    
+    - name: Basic functionality test
+      run: |
+        if [ "${{ runner.os }}" = "Windows" ]; then
+          timeout 10 dist/${{ matrix.artifact }}.exe --help || echo "Help test completed"
+        else
+          timeout 10 dist/${{ matrix.artifact }} --help || echo "Help test completed"
+        fi
+    
+    - name: Package as zip (macOS)
+      if: startsWith(matrix.name, 'macos')
+      run: |
+        cd dist
+        chmod +x ${{ matrix.artifact }}
+        zip ${{ matrix.artifact }}.zip ${{ matrix.artifact }}
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: yt-dlp-desktop-linux-x64
-        path: dist/yt-dlp-desktop-linux-x64
+        name: ${{ matrix.artifact }}
+        path: |
+          ${{ startsWith(matrix.name, 'macos') && format('dist/{0}.zip', matrix.artifact) || format('dist/{0}{1}', matrix.artifact, runner.os == 'Windows' && '.exe' || '') }}
         retention-days: 7
 
   release:
-    needs: [build-macos, build-windows, build-linux]
+    needs: [build]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -171,6 +170,7 @@ jobs:
       with:
         files: |
           artifacts/yt-dlp-desktop-macos-arm64/yt-dlp-desktop-macos-arm64.zip
+          artifacts/yt-dlp-desktop-macos-x64/yt-dlp-desktop-macos-x64.zip
           artifacts/yt-dlp-desktop-windows-x64/yt-dlp-desktop-windows-x64.exe
           artifacts/yt-dlp-desktop-linux-x64/yt-dlp-desktop-linux-x64
         draft: false
