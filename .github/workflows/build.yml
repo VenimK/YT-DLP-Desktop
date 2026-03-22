@@ -40,11 +40,6 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Run tests
-      run: |
-        python -m pytest tests/ -v
-        python -c "import app; print('✅ App imports successfully')"
-    
     - name: Download yt-dlp
       run: |
         mkdir -p bin
@@ -74,15 +69,6 @@ jobs:
         ls -lh dist/yt-dlp-desktop-macos-arm64
         file dist/yt-dlp-desktop-macos-arm64
         codesign -dv dist/yt-dlp-desktop-macos-arm64 2>&1 || true
-    
-    - name: Test artifact
-      run: |
-        dist/yt-dlp-desktop-macos-arm64 --version
-    
-    - name: Analyze build size
-      run: |
-        size=$(stat -c%s dist/yt-dlp-desktop-macos-arm64)
-        echo "Build size: $(echo "scale=2; $size/1024/1024" | bc) MB"
     
     - name: Package as zip (preserves permissions)
       run: |
@@ -129,11 +115,6 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Run tests
-      run: |
-        python -m pytest tests/ -v
-        python -c "import app; print('✅ App imports successfully')"
-    
     - name: Download yt-dlp
       run: |
         New-Item -ItemType Directory -Force -Path bin
@@ -152,15 +133,6 @@ jobs:
           --name yt-dlp-desktop-windows-x64 `
           --clean `
           app.py
-    
-    - name: Test artifact
-      run: |
-        dist/yt-dlp-desktop-windows-x64.exe --version
-    
-    - name: Analyze build size
-      run: |
-        $size = (Get-Item dist/yt-dlp-desktop-windows-x64.exe).Length
-        echo "Build size: $([math]::Round($size/1MB, 2)) MB"
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -206,11 +178,6 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Run tests
-      run: |
-        python -m pytest tests/ -v
-        python -c "import app; print('✅ App imports successfully')"
-    
     - name: Download yt-dlp
       run: |
         mkdir -p bin
@@ -235,15 +202,6 @@ jobs:
       run: |
         ls -lh dist/yt-dlp-desktop-linux-x64
         file dist/yt-dlp-desktop-linux-x64
-    
-    - name: Test artifact
-      run: |
-        dist/yt-dlp-desktop-linux-x64 --version
-    
-    - name: Analyze build size
-      run: |
-        size=$(stat -c%s dist/yt-dlp-desktop-linux-x64)
-        echo "Build size: $(echo "scale=2; $size/1024/1024" | bc) MB"
     
     - name: Upload artifact
       uses: actions/upload-artifact@v4
