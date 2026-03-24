@@ -5,6 +5,7 @@
 const Downloads = {
   activeDownloads: new Map(),
   pollInterval: null,
+  bandwidthMonitorInterval: null,
   bandwidthStats: {
     totalBytes: 0,
     startTime: null,
@@ -21,10 +22,23 @@ const Downloads = {
 
   // Initialize bandwidth monitoring
   initBandwidthMonitor() {
-    // Update bandwidth display every 2 seconds
-    setInterval(() => {
+    // Start the interval only when a download begins; see startBandwidthMonitor()
+  },
+
+  // Start bandwidth monitor interval
+  startBandwidthMonitor() {
+    if (this.bandwidthMonitorInterval) return;
+    this.bandwidthMonitorInterval = setInterval(() => {
       this.updateBandwidthDisplay();
     }, 2000);
+  },
+
+  // Stop bandwidth monitor interval
+  stopBandwidthMonitor() {
+    if (this.bandwidthMonitorInterval) {
+      clearInterval(this.bandwidthMonitorInterval);
+      this.bandwidthMonitorInterval = null;
+    }
   },
 
   // Update bandwidth display
@@ -37,9 +51,9 @@ const Downloads = {
       return;
     }
 
-    const totalSpeed = this.calculateTotalSpeed();
-    const speedText = Utils.formatSpeed(totalSpeed);
-    const peakSpeedText = Utils.formatSpeed(this.bandwidthStats.peakSpeed);
+    const totalBytesPerSec = this.calculateTotalSpeed();
+    const speedText = this._formatBytesPerSec(totalBytesPerSec);
+    const peakSpeedText = this._formatBytesPerSec(this.bandwidthStats.peakSpeed);
     
     bandwidthEl.innerHTML = `
       <i class="fas fa-tachometer-alt"></i> 
@@ -47,25 +61,48 @@ const Downloads = {
     `;
   },
 
-  // Calculate total download speed
-  calculateTotalSpeed() {
-    let totalSpeed = 0;
-    this.activeDownloads.forEach(download => {
-      if (download.speed) {
-        totalSpeed += parseFloat(download.speed.replace(/[^0-9.]/g, ''));
-      }
-    });
-    return totalSpeed;
+  // Parse a yt-dlp speed string (e.g. "1.50MiB/s") to bytes/s
+  _parseSpeedBytes(speedStr) {
+    if (!speedStr) return 0;
+    const match = speedStr.match(/([\d.]+)\s*([KMGT]i?B)\/s/i);
+    if (!match) return 0;
+    const value = parseFloat(match[1]);
+    const unit = match[2].toUpperCase();
+    const multipliers = { 'B': 1, 'KB': 1e3, 'KIB': 1024, 'MB': 1e6, 'MIB': 1048576, 'GB': 1e9, 'GIB': 1073741824, 'TB': 1e12, 'TIB': 1099511627776 };
+    return value * (multipliers[unit] || 1);
   },
 
-  // Update bandwidth statistics
+  // Format bytes/s to a human-readable string
+  _formatBytesPerSec(bytesPerSec) {
+    if (!bytesPerSec || bytesPerSec <= 0) return '0 B/s';
+    const units = ['B/s', 'KiB/s', 'MiB/s', 'GiB/s'];
+    const i = Math.min(Math.floor(Math.log(bytesPerSec) / Math.log(1024)), units.length - 1);
+    return (bytesPerSec / Math.pow(1024, i)).toFixed(2) + ' ' + units[i];
+  },
+
+  // Calculate total download speed in bytes/s
+  calculateTotalSpeed() {
+    let totalBytes = 0;
+    this.activeDownloads.forEach(download => {
+      if (download.speed) {
+        totalBytes += this._parseSpeedBytes(download.speed);
+      }
+    });
+    return totalBytes;
+  },
+
+  // Update bandwidth statistics (speed is a yt-dlp string like "1.50MiB/s")
   updateBandwidthStats(speed) {
-    const numericSpeed = parseFloat(speed.replace(/[^0-9.]/g, ''));
-    this.bandwidthStats.currentSpeed = numericSpeed;
-    
-    if (numericSpeed > this.bandwidthStats.peakSpeed) {
-      this.bandwidthStats.peakSpeed = numericSpeed;
+    const bytesPerSec = this._parseSpeedBytes(speed);
+    this.bandwidthStats.currentSpeed = bytesPerSec;
+    if (bytesPerSec > this.bandwidthStats.peakSpeed) {
+      this.bandwidthStats.peakSpeed = bytesPerSec;
     }
+  },
+
+  // Set pre-loaded download history (called from App.initStorage)
+  setHistory(history) {
+    // History display is owned by App; this is a no-op kept for API compatibility.
   },
   
   // Setup event listeners
@@ -86,12 +123,32 @@ const Downloads = {
   // Handle form submission
   async handleSubmit(e) {
     e.preventDefault();
-    
+
+    // Batch mode: queue each non-empty URL line separately
+    const batchEl = document.getElementById('urlBatch');
+    if (batchEl && batchEl.style.display !== 'none') {
+      const urls = batchEl.value.split('\n').map(u => u.trim()).filter(u => u.startsWith('http'));
+      if (urls.length === 0) {
+        UI.toast.error('Enter at least one URL in batch mode');
+        return;
+      }
+      UI.toast.info(`Queuing ${urls.length} URL${urls.length > 1 ? 's' : ''}…`);
+      for (const batchUrl of urls) {
+        await this._startSingleDownload(batchUrl);
+      }
+      return;
+    }
+
     const url = document.getElementById('url').value;
     if (!url) {
       UI.toast.error('Please enter a video or audio URL');
       return;
     }
+    await this._startSingleDownload(url);
+  },
+
+  // Start a single download with options gathered from the form
+  async _startSingleDownload(url) {
     
     // Gather options
     const options = {
@@ -177,6 +234,7 @@ const Downloads = {
     this.pollInterval = setInterval(() => {
       this.pollAllProgress();
     }, 1000);
+    this.startBandwidthMonitor();
   },
   
   // Stop progress polling if no active downloads
@@ -184,6 +242,7 @@ const Downloads = {
     if (this.activeDownloads.size === 0 && this.pollInterval) {
       clearInterval(this.pollInterval);
       this.pollInterval = null;
+      this.stopBandwidthMonitor();
     }
   },
   
@@ -215,6 +274,7 @@ const Downloads = {
       download.filename = data.filename;
       download.speed = data.speed;
       download.eta = data.eta;
+      if (data.speed) this.updateBandwidthStats(data.speed);
       
       // Update UI
       this.updateDownloadCard(sessionId, data);

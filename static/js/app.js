@@ -3,6 +3,8 @@
  */
 
 const App = {
+  _videoInfoCache: new Map(),
+
   // Initialize the application
   init() {
     this.initStorage();
@@ -17,6 +19,9 @@ const App = {
     // Initialize performance optimizations
     LazyLoader.setup();
     
+    // Check for yt-dlp updates in background
+    this.checkForUpdate();
+
     console.log('🚀 YT-DLP Desktop initialized');
   },
 
@@ -26,16 +31,10 @@ const App = {
     const prefs = Storage.loadPreferences();
     if (prefs.theme) {
       document.documentElement.setAttribute('data-theme', prefs.theme);
-      this.updateThemeToggle(prefs.theme);
+      UI.theme.updateButton(prefs.theme);
     }
     if (prefs.advancedOptions) {
       UI.accordion.show('advancedOptions');
-    }
-    
-    // Load download history
-    const history = Storage.loadDownloadHistory();
-    if (history.length > 0) {
-      Downloads.setHistory(history);
     }
   },
   
@@ -175,7 +174,7 @@ const App = {
       // Ctrl/Cmd + D: Toggle dark mode
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        this.toggleTheme();
+        UI.theme.toggle();
       }
       
       // Ctrl/Cmd + L: Clear URL input
@@ -185,9 +184,11 @@ const App = {
         document.getElementById('url').focus();
       }
       
-      // Escape: Clear preview
+      // Escape: Close modals and clear preview
       if (e.key === 'Escape') {
+        this.hideKeyboardShortcuts();
         this.clearPreview();
+        Lyrics.close();
       }
     });
   },
@@ -236,9 +237,69 @@ const App = {
   initVideoPreview() {
     // Preview is loaded on URL input
   },
+
+  // Toggle batch URL mode
+  toggleBatchMode() {
+    const single = document.getElementById('url');
+    const batch = document.getElementById('urlBatch');
+    const btn = document.getElementById('batchToggleBtn');
+    const playlist = document.getElementById('fetchPlaylistBtn');
+    if (!single || !batch) return;
+
+    const isBatch = batch.style.display !== 'none';
+    single.style.display = isBatch ? '' : 'none';
+    batch.style.display = isBatch ? 'none' : '';
+    if (playlist) playlist.style.display = isBatch ? '' : 'none';
+    if (btn) btn.innerHTML = isBatch
+      ? '<i class="fas fa-list-ul"></i> Batch'
+      : '<i class="fas fa-times"></i> Single';
+  },
+
+  // Check for yt-dlp updates via backend
+  async checkForUpdate() {
+    try {
+      const data = await API.fetch('/check-update');
+      if (data.checked && data.latest && data.current && data.latest !== data.current) {
+        const banner = document.getElementById('updateBanner');
+        const text = document.getElementById('updateBannerText');
+        if (banner) banner.style.display = 'block';
+        if (text) text.textContent = `${data.current} → ${data.latest}`;
+      }
+    } catch (e) {
+      // Non-critical; silently ignore
+    }
+  },
+
+  // Trigger yt-dlp self-update
+  async updateYtDlp() {
+    const btn = document.getElementById('updateYtDlpBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner spin"></i> Updating...'; }
+    try {
+      const data = await API.fetch('/update-ytdlp', { method: 'POST' });
+      UI.toast.success(data.message || 'yt-dlp updated successfully!');
+      document.getElementById('updateBanner').style.display = 'none';
+    } catch (e) {
+      UI.toast.error('Update failed: ' + e.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-download"></i> Update'; }
+    }
+  },
+
+  // Clear the video preview card
+  clearPreview() {
+    const previewCard = document.getElementById('videoPreview');
+    if (previewCard) previewCard.classList.remove('visible');
+    const previewThumbnail = document.getElementById('previewThumbnail');
+    if (previewThumbnail) previewThumbnail.src = '';
+  },
   
-  // Fetch video preview
+  // Fetch video preview (with in-session cache)
   async fetchVideoPreview(url) {
+    if (this._videoInfoCache.has(url)) {
+      const cached = this._videoInfoCache.get(url);
+      this._applyVideoPreview(url, cached);
+      return;
+    }
     const previewCard = document.getElementById('videoPreview');
     const previewLoading = document.getElementById('previewLoading');
     const previewContent = document.getElementById('previewContent');
@@ -252,108 +313,103 @@ const App = {
     
     try {
       const data = await API.getVideoInfo(url);
-      
-      if (data.title) {
-        // Hide loading, show content first (so thumbnail loads properly)
-        if (previewLoading) previewLoading.style.display = 'none';
-        if (previewContent) previewContent.style.display = 'block';
-        
-        // Set title
-        document.getElementById('previewTitle').textContent = data.title;
-        
-        // Set thumbnail (after content is visible)
-        const thumbnail = document.getElementById('previewThumbnail');
-        if (data.thumbnail) {
-          // Preload image before setting src to avoid broken image icon
-          const img = new Image();
-          img.onload = () => {
-            thumbnail.src = img.src;
-            thumbnail.classList.add('loaded');
-          };
-          img.onerror = () => {
-            thumbnail.src = this.getPlaceholderImage('No Thumbnail');
-          };
-          img.src = API.getThumbnailUrl(data.thumbnail);
-        } else {
-          thumbnail.src = this.getPlaceholderImage('No Thumbnail');
-        }
-        
-        // Set channel with link if available
-        const channelEl = document.getElementById('previewChannel');
-        if (data.channel) {
-          channelEl.querySelector('span').textContent = data.channel;
-          channelEl.style.display = 'inline-flex';
-        } else {
-          channelEl.style.display = 'none';
-        }
-        
-        // Set duration
-        const durationEl = document.getElementById('previewDuration');
-        if (data.duration) {
-          durationEl.querySelector('span').textContent = Utils.formatDuration(data.duration);
-          durationEl.style.display = 'inline-flex';
-        } else {
-          durationEl.style.display = 'none';
-        }
-        
-        // Set view count
-        const viewsEl = document.getElementById('previewViews');
-        if (data.view_count) {
-          viewsEl.querySelector('span').textContent = this.formatNumber(data.view_count) + ' views';
-          viewsEl.style.display = 'inline-flex';
-        } else {
-          viewsEl.style.display = 'none';
-        }
-        
-        // Set like count
-        const likesEl = document.getElementById('previewLikes');
-        if (data.like_count) {
-          likesEl.querySelector('span').textContent = this.formatNumber(data.like_count) + ' likes';
-          likesEl.style.display = 'inline-flex';
-        } else {
-          likesEl.style.display = 'none';
-        }
-        
-        // Set upload date
-        const dateEl = document.getElementById('previewDate');
-        if (data.upload_date) {
-          dateEl.querySelector('span').textContent = data.upload_date;
-          dateEl.style.display = 'inline-flex';
-        } else {
-          dateEl.style.display = 'none';
-        }
-        
-        // Set description
-        const descEl = document.getElementById('previewDescription');
-        if (data.description) {
-          descEl.textContent = data.description;
-          descEl.style.display = 'block';
-        } else {
-          descEl.style.display = 'none';
-        }
-        
-        // Set available formats
-        const formatsEl = document.getElementById('previewFormats');
-        const formatsListEl = document.getElementById('previewFormatsList');
-        if (data.formats && data.formats.length > 0) {
-          formatsListEl.innerHTML = data.formats.map(f => {
-            let badgeClass = '';
-            if (f.height >= 2160) badgeClass = 'uhd';
-            else if (f.height >= 1080) badgeClass = 'hd';
-            return `<span class="preview-format-badge ${badgeClass}">${f.height}p</span>`;
-          }).join('');
-          formatsEl.style.display = 'block';
-        } else {
-          formatsEl.style.display = 'none';
-        }
-        
-      } else {
-        this.showPreviewError(data.error || 'Failed to load preview');
-      }
+      this._videoInfoCache.set(url, data);
+      this._applyVideoPreview(url, data);
     } catch (error) {
       if (previewLoading) previewLoading.style.display = 'none';
       if (previewContent) previewContent.style.display = 'block';
       this.showPreviewError('Error loading preview');
+    }
+  },
+
+  // Apply fetched video data to the preview card
+  _applyVideoPreview(url, data) {
+    const previewCard = document.getElementById('videoPreview');
+    const previewLoading = document.getElementById('previewLoading');
+    const previewContent = document.getElementById('previewContent');
+
+    if (!previewCard) return;
+    previewCard.classList.add('visible');
+
+    if (data.title) {
+      if (previewLoading) previewLoading.style.display = 'none';
+      if (previewContent) previewContent.style.display = 'block';
+
+      document.getElementById('previewTitle').textContent = data.title;
+
+      const thumbnail = document.getElementById('previewThumbnail');
+      if (data.thumbnail) {
+        const img = new Image();
+        img.onload = () => { thumbnail.src = img.src; thumbnail.classList.add('loaded'); };
+        img.onerror = () => { thumbnail.src = this.getPlaceholderImage('No Thumbnail'); };
+        img.src = API.getThumbnailUrl(data.thumbnail);
+      } else {
+        thumbnail.src = this.getPlaceholderImage('No Thumbnail');
+      }
+
+      const channelEl = document.getElementById('previewChannel');
+      if (data.channel) {
+        channelEl.querySelector('span').textContent = data.channel;
+        channelEl.style.display = 'inline-flex';
+      } else {
+        channelEl.style.display = 'none';
+      }
+
+      const durationEl = document.getElementById('previewDuration');
+      if (data.duration) {
+        durationEl.querySelector('span').textContent = Utils.formatDuration(data.duration);
+        durationEl.style.display = 'inline-flex';
+      } else {
+        durationEl.style.display = 'none';
+      }
+
+      const viewsEl = document.getElementById('previewViews');
+      if (data.view_count) {
+        viewsEl.querySelector('span').textContent = this.formatNumber(data.view_count) + ' views';
+        viewsEl.style.display = 'inline-flex';
+      } else {
+        viewsEl.style.display = 'none';
+      }
+
+      const likesEl = document.getElementById('previewLikes');
+      if (data.like_count) {
+        likesEl.querySelector('span').textContent = this.formatNumber(data.like_count) + ' likes';
+        likesEl.style.display = 'inline-flex';
+      } else {
+        likesEl.style.display = 'none';
+      }
+
+      const dateEl = document.getElementById('previewDate');
+      if (data.upload_date) {
+        dateEl.querySelector('span').textContent = data.upload_date;
+        dateEl.style.display = 'inline-flex';
+      } else {
+        dateEl.style.display = 'none';
+      }
+
+      const descEl = document.getElementById('previewDescription');
+      if (data.description) {
+        descEl.textContent = data.description;
+        descEl.style.display = 'block';
+      } else {
+        descEl.style.display = 'none';
+      }
+
+      const formatsEl = document.getElementById('previewFormats');
+      const formatsListEl = document.getElementById('previewFormatsList');
+      if (data.formats && data.formats.length > 0) {
+        formatsListEl.innerHTML = data.formats.map(f => {
+          let badgeClass = '';
+          if (f.height >= 2160) badgeClass = 'uhd';
+          else if (f.height >= 1080) badgeClass = 'hd';
+          return `<span class="preview-format-badge ${badgeClass}">${f.height}p</span>`;
+        }).join('');
+        formatsEl.style.display = 'block';
+      } else {
+        formatsEl.style.display = 'none';
+      }
+    } else {
+      this.showPreviewError(data.error || 'Failed to load preview');
     }
   },
   
@@ -595,27 +651,27 @@ const App = {
   
   // Add to download history
   addToHistory(filename) {
-    let history = Utils.storage.get('downloadHistory', []);
-    
+    let history = Storage.loadDownloadHistory();
+
     // Add new entry
     history.unshift({
       filename,
       timestamp: Date.now()
     });
-    
+
     // Keep only last 20
     history = history.slice(0, 20);
-    
-    Utils.storage.set('downloadHistory', history);
+
+    Storage.saveDownloadHistory(history);
     this.renderDownloadHistory();
   },
-  
+
   // Render download history
   renderDownloadHistory() {
     const list = document.getElementById('downloadHistoryList');
     if (!list) return;
-    
-    const history = Utils.storage.get('downloadHistory', []);
+
+    const history = Storage.loadDownloadHistory();
     
     if (history.length === 0) {
       list.innerHTML = `

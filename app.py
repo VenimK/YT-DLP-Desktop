@@ -981,6 +981,32 @@ def check_update():
     """Return yt-dlp version and update status"""
     return jsonify(_update_info)
 
+
+@app.route('/update-ytdlp', methods=['POST'])
+def update_ytdlp():
+    """Run yt-dlp -U to self-update the binary"""
+    try:
+        result = subprocess.run(
+            [_get_yt_dlp_executable(), '-U'],
+            capture_output=True, text=True, timeout=120
+        )
+        output = (result.stdout + result.stderr).strip()
+        if result.returncode == 0:
+            log('UPDATE', 'yt-dlp self-update succeeded')
+            # Refresh stored version info
+            new_version = _check_yt_dlp()
+            if new_version:
+                _update_info['current'] = new_version
+                _update_info['latest'] = None
+            return jsonify({'success': True, 'message': output or 'yt-dlp updated successfully'})
+        else:
+            log('ERROR', f'yt-dlp update failed: {output[:200]}')
+            return jsonify({'error': output or 'Update failed'}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Update timed out (120s)'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/test-platform', methods=['POST'])
 def test_platform():
     """Test if a URL from a specific platform works with yt-dlp"""

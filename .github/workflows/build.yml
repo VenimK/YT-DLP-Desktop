@@ -30,7 +30,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: bin/yt-dlp*
-        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/download-yt-dlp.sh') }}
+        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           yt-dlp-${{ runner.os }}-
     
@@ -105,7 +105,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: bin/yt-dlp*
-        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/download-yt-dlp.sh') }}
+        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           yt-dlp-${{ runner.os }}-
     
@@ -163,7 +163,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: bin/yt-dlp*
-        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/download-yt-dlp.sh') }}
+        key: yt-dlp-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           yt-dlp-${{ runner.os }}-
     

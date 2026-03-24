@@ -99,9 +99,17 @@
           <div>
             <!-- URL Input -->
             <div class="form-group">
-              <label class="form-label" for="url"><i class="fas fa-link"></i> Video/Audio URL</label>
+              <label class="form-label" for="url">
+                <i class="fas fa-link"></i> Video/Audio URL
+                <button type="button" id="batchToggleBtn" class="btn btn-sm" style="margin-left: 10px; font-size: 0.8em;" onclick="App.toggleBatchMode()">
+                  <i class="fas fa-list-ul"></i> Batch
+                </button>
+              </label>
               <input type="text" id="url" name="url" class="form-input" 
-                     placeholder="https://www.youtube.com/watch?v=..." required>
+                     placeholder="https://www.youtube.com/watch?v=...">
+              <textarea id="urlBatch" name="urlBatch" class="form-input" rows="4"
+                        placeholder="One URL per line&#10;https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/watch?v=..."
+                        style="display:none; resize:vertical; font-family: monospace; font-size: 0.9em;"></textarea>
               <button type="button" id="fetchPlaylistBtn" class="btn btn-sm" style="margin-top: 10px;">
                 <i class="fas fa-list"></i> Load Playlist Contents
               </button>
@@ -412,6 +420,9 @@
           <div class="downloads-header">
             <h3><i class="fas fa-download"></i> Downloaded Files</h3>
             <div style="display: flex; gap: 10px;">
+              <button type="button" class="btn btn-sm" onclick="App.toggleDownloadHistory()">
+                <i class="fas fa-history"></i> History
+              </button>
               <button type="button" id="keyboardShortcutsBtn" class="btn btn-sm" onclick="App.showKeyboardShortcuts()">
                 <i class="fas fa-keyboard"></i> Shortcuts
               </button>
@@ -444,20 +455,24 @@
       <div class="modal-body">
         <div class="shortcuts-list">
           <div class="shortcut-item">
-            <kbd>Ctrl</kbd> + <kbd>D</kbd>
+            <kbd>Ctrl</kbd> + <kbd>K</kbd>
             <span>Focus URL input</span>
-          </div>
-          <div class="shortcut-item">
-            <kbd>Ctrl</kbd> + <kbd>Q</kbd>
-            <span>Clear form</span>
           </div>
           <div class="shortcut-item">
             <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
             <span>Start download</span>
           </div>
           <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>D</kbd>
+            <span>Toggle dark mode</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Ctrl</kbd> + <kbd>L</kbd>
+            <span>Clear URL input</span>
+          </div>
+          <div class="shortcut-item">
             <kbd>Esc</kbd>
-            <span>Close lyrics/modals</span>
+            <span>Close modals / clear preview</span>
           </div>
         </div>
       </div>
@@ -479,6 +494,23 @@
           <p>No recent downloads</p>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- yt-dlp Update Banner -->
+  <div id="updateBanner" style="display:none; position:fixed; bottom:70px; right:20px; z-index:1000;">
+    <div class="glass-card" style="padding:12px 18px; border-left:4px solid var(--info); display:flex; align-items:center; gap:12px; min-width:280px;">
+      <i class="fas fa-arrow-circle-up" style="color:var(--info); font-size:20px;"></i>
+      <div style="flex:1;">
+        <div style="font-weight:600; font-size:0.9em;">yt-dlp update available</div>
+        <div id="updateBannerText" style="font-size:0.8em; color:var(--text-secondary);"></div>
+      </div>
+      <button type="button" id="updateYtDlpBtn" class="btn btn-sm" onclick="App.updateYtDlp()">
+        <i class="fas fa-download"></i> Update
+      </button>
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('updateBanner').style.display='none'" style="padding:4px 8px;">
+        <i class="fas fa-times"></i>
+      </button>
     </div>
   </div>
 

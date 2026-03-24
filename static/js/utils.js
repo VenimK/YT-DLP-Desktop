@@ -99,14 +99,22 @@ const LazyLoader = {
   }
 };
 
+// Detect WebP support once at module load (avoids repeated canvas allocations)
+const _supportsWebP = (() => {
+  try {
+    return document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') === 0;
+  } catch (e) {
+    return false;
+  }
+})();
+
 // Image optimization utilities
 const ImageOptimizer = {
   // Convert to WebP if supported
   getOptimizedUrl(originalUrl, width = null, height = null) {
     if (!originalUrl) return '';
     
-    // Check WebP support
-    const supportsWebP = document.createElement('canvas').toDataURL('image/webp').indexOf('data:image/webp') === 0;
+    const supportsWebP = _supportsWebP;
     
     // For YouTube thumbnails, we can optimize
     if (originalUrl.includes('ytimg.com')) {

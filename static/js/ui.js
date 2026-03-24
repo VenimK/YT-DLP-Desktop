@@ -175,6 +175,24 @@ const UI = {
         header.classList.add('active');
         content.style.display = 'block';
       }
+    },
+
+    show(id) {
+      const content = document.getElementById(id);
+      const header = content?.previousElementSibling;
+      if (!content || !header) return;
+      content.classList.add('active');
+      header.classList.add('active');
+      content.style.display = 'block';
+    },
+
+    hide(id) {
+      const content = document.getElementById(id);
+      const header = content?.previousElementSibling;
+      if (!content || !header) return;
+      content.classList.remove('active');
+      header.classList.remove('active');
+      content.style.display = 'none';
     }
   },
   
