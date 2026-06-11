@@ -4,6 +4,7 @@
 
 const App = {
   _videoInfoCache: new Map(),
+  _VIDEO_CACHE_MAX: 50,
 
   // Initialize the application
   init() {
@@ -238,6 +239,272 @@ const App = {
     // Preview is loaded on URL input
   },
 
+  // ── Format Picker ────────────────────────────────────────────────────────
+
+  async fetchFormats() {
+    const url = (document.getElementById('url')?.value || '').trim();
+    if (!url) {
+      UI.toast.error('Enter a URL first, then click Pick.');
+      return;
+    }
+    const modal   = document.getElementById('formatPickerModal');
+    const title   = document.getElementById('formatPickerTitle');
+    const content = document.getElementById('formatPickerContent');
+    if (!modal) return;
+
+    content.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Fetching formats…</p></div>';
+    title.textContent = '';
+    modal.style.display = 'block';
+
+    try {
+      const res  = await fetch('/fetch-formats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        content.innerHTML = `<p style="color:var(--danger);"><i class="fas fa-exclamation-circle"></i> ${data.error || 'Failed to fetch formats'}</p>`;
+        return;
+      }
+      if (data.title) title.textContent = data.title;
+      this._renderFormatTable(data.formats, content);
+    } catch (e) {
+      content.innerHTML = `<p style="color:var(--danger);">Network error: ${e.message}</p>`;
+    }
+  },
+
+  _renderFormatTable(formats, container) {
+    const groups = {
+      full:  formats.filter(f => f.has_video && f.has_audio),
+      video: formats.filter(f => f.has_video && !f.has_audio),
+      audio: formats.filter(f => !f.has_video && f.has_audio),
+    };
+    const fmtSize = b => {
+      if (!b) return '?';
+      if (b > 1e9) return (b/1e9).toFixed(1) + ' GB';
+      if (b > 1e6) return (b/1e6).toFixed(1) + ' MB';
+      return (b/1e3).toFixed(0) + ' KB';
+    };
+    const fmtCodec = v => v && v !== 'none' ? v.split('.')[0] : '—';
+    const row = f => `
+      <tr style="cursor:pointer;" onclick="App.selectFormat('${f.format_id}')"
+          title="Click to use this format">
+        <td style="font-family:monospace;font-size:0.85em;">${f.format_id}</td>
+        <td>${f.ext}</td>
+        <td>${f.resolution || f.format_note || '—'}</td>
+        <td>${f.fps ? f.fps + 'fps' : '—'}</td>
+        <td>${fmtCodec(f.vcodec)}</td>
+        <td>${fmtCodec(f.acodec)}</td>
+        <td>${fmtSize(f.filesize)}</td>
+      </tr>`;
+    const table = (rows, note) => rows.length === 0 ? '' : `
+      <p style="margin:16px 0 6px; font-weight:600; color:var(--primary);">${note}</p>
+      <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:0.88em;">
+        <thead><tr style="text-align:left; color:var(--text-muted); border-bottom:1px solid var(--gray-200);">
+          <th style="padding:4px 8px;">ID</th><th style="padding:4px 8px;">Ext</th>
+          <th style="padding:4px 8px;">Resolution</th><th style="padding:4px 8px;">FPS</th>
+          <th style="padding:4px 8px;">Video codec</th><th style="padding:4px 8px;">Audio codec</th>
+          <th style="padding:4px 8px;">Size</th>
+        </tr></thead>
+        <tbody>${rows.map(row).join('')}</tbody>
+      </table></div>`;
+    container.innerHTML =
+      '<p style="margin:0 0 4px;font-size:0.85em;color:var(--text-muted);">Click a row to use that format ID. Or combine IDs manually, e.g. <code>137+251</code>.</p>' +
+      table(groups.full,  '🎬 Video + Audio') +
+      table(groups.video, '📹 Video only') +
+      table(groups.audio, '🔊 Audio only');
+    // Hover highlight
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.addEventListener('mouseenter', () => tr.style.background = 'var(--gray-100)');
+      tr.addEventListener('mouseleave', () => tr.style.background = '');
+    });
+  },
+
+  selectFormat(id) {
+    const sel = document.getElementById('format');
+    if (!sel) return;
+    // Add a custom option if not already present
+    let opt = sel.querySelector(`option[value="${id}"]`);
+    if (!opt) {
+      opt = new Option(`Custom: ${id}`, id);
+      sel.appendChild(opt);
+    }
+    sel.value = id;
+    this.closeFormatPicker();
+    UI.toast.success(`Format set to ${id}`);
+  },
+
+  closeFormatPicker() {
+    const modal = document.getElementById('formatPickerModal');
+    if (modal) modal.style.display = 'none';
+  },
+
+  // ── Subtitle Picker ───────────────────────────────────────────────────────
+
+  _LANG_NAMES: {
+    af:'Afrikaans',am:'Amharic',ar:'Arabic',az:'Azerbaijani',be:'Belarusian',
+    bg:'Bulgarian',bn:'Bengali',bs:'Bosnian',ca:'Catalan',cs:'Czech',
+    cy:'Welsh',da:'Danish',de:'German',el:'Greek',en:'English',
+    'en-orig':'English (original)',es:'Spanish',et:'Estonian',eu:'Basque',
+    fa:'Persian',fi:'Finnish',fil:'Filipino',fr:'French',gl:'Galician',
+    gu:'Gujarati',he:'Hebrew',hi:'Hindi',hr:'Croatian',hu:'Hungarian',
+    hy:'Armenian',id:'Indonesian',is:'Icelandic',it:'Italian',ja:'Japanese',
+    ka:'Georgian',kk:'Kazakh',km:'Khmer',kn:'Kannada',ko:'Korean',
+    lo:'Lao',lt:'Lithuanian',lv:'Latvian',mk:'Macedonian',ml:'Malayalam',
+    mn:'Mongolian',mr:'Marathi',ms:'Malay',my:'Burmese',ne:'Nepali',
+    nl:'Dutch',no:'Norwegian',pa:'Punjabi',pl:'Polish',pt:'Portuguese',
+    ro:'Romanian',ru:'Russian',si:'Sinhala',sk:'Slovak',sl:'Slovenian',
+    sq:'Albanian',sr:'Serbian',sv:'Swedish',sw:'Swahili',ta:'Tamil',
+    te:'Telugu',th:'Thai',tr:'Turkish',uk:'Ukrainian',ur:'Urdu',
+    uz:'Uzbek',vi:'Vietnamese','zh-Hans':'Chinese (Simplified)',
+    'zh-Hant':'Chinese (Traditional)',zu:'Zulu',
+  },
+
+  _subtitleData: null,
+
+  async fetchSubtitles() {
+    const url = (document.getElementById('url')?.value || '').trim();
+    if (!url) { UI.toast.error('Enter a URL first, then click Pick.'); return; }
+
+    const modal   = document.getElementById('subtitlePickerModal');
+    const titleEl = document.getElementById('subtitlePickerTitle');
+    const content = document.getElementById('subtitlePickerContent');
+    const search  = document.getElementById('subtitleSearch');
+    if (!modal) return;
+
+    content.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading subtitles…</p></div>';
+    if (search) search.value = '';
+    if (titleEl) titleEl.textContent = '';
+    modal.style.display = 'block';
+
+    try {
+      const res  = await fetch('/fetch-subtitles', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        content.innerHTML = `<p style="color:var(--danger);"><i class="fas fa-exclamation-circle"></i> ${data.error || 'Failed'}</p>`;
+        return;
+      }
+      if (titleEl && data.title) titleEl.textContent = data.title;
+      this._subtitleData = data;
+      this._renderSubtitleList(data, content, '');
+    } catch (e) {
+      content.innerHTML = `<p style="color:var(--danger);">Network error: ${e.message}</p>`;
+    }
+  },
+
+  _renderSubtitleList(data, container, filter) {
+    const q = filter.toLowerCase();
+    const nameOf = code => this._LANG_NAMES[code] || code;
+    const matches = (code) => !q || code.toLowerCase().includes(q) || nameOf(code).toLowerCase().includes(q);
+
+    const buildRows = (dict, type, badge, badgeColor) =>
+      Object.entries(dict)
+        .filter(([code]) => matches(code))
+        .sort(([a], [b]) => nameOf(a).localeCompare(nameOf(b)))
+        .map(([code, exts]) => {
+          const name  = nameOf(code);
+          const fmts  = exts.join(', ') || '?';
+          const alreadySelected = (document.getElementById('subLangs')?.value || '').split(',').map(s=>s.trim()).includes(code);
+          return `<tr style="cursor:pointer;${alreadySelected?' background:var(--gray-100);':''}"
+                      onclick="App.selectSubtitle('${code}','${type}')"
+                      title="Add ${name} (${code}) to subtitle languages">
+            <td style="padding:5px 8px; font-weight:600; font-family:monospace; font-size:0.9em;">${code}</td>
+            <td style="padding:5px 8px;">${name}</td>
+            <td style="padding:5px 8px;"><span style="background:${badgeColor};color:#fff;border-radius:4px;padding:1px 6px;font-size:0.75em;">${badge}</span></td>
+            <td style="padding:5px 8px; color:var(--text-muted); font-size:0.8em;">${fmts}</td>
+            ${alreadySelected ? '<td style="padding:5px 8px; color:var(--success);"><i class="fas fa-check"></i></td>' : '<td></td>'}
+          </tr>`;
+        }).join('');
+
+    const manualRows = buildRows(data.manual || {}, 'manual', 'Manual', '#6c757d');
+    const autoRows   = buildRows(data.auto   || {}, 'auto',   'Auto',   '#0d6efd');
+
+    if (!manualRows && !autoRows) {
+      container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">No subtitles found matching your search.</p>';
+      return;
+    }
+
+    const section = (label, icon, rows) => rows ? `
+      <p style="margin:14px 0 6px; font-weight:600; color:var(--primary);">${icon} ${label}</p>
+      <div style="overflow-x:auto; max-height:280px; overflow-y:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:0.88em;">
+        <thead><tr style="color:var(--text-muted); border-bottom:1px solid var(--gray-200);">
+          <th style="padding:4px 8px;">Code</th><th style="padding:4px 8px;">Language</th>
+          <th style="padding:4px 8px;">Type</th><th style="padding:4px 8px;">Formats</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>` : '';
+
+    container.innerHTML =
+      section('Manually uploaded by creator', '📝', manualRows) +
+      section('Auto-generated & translatable', '🤖', autoRows);
+
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.addEventListener('mouseenter', () => { if(!tr.style.background) tr.style.background='var(--gray-100)'; });
+      tr.addEventListener('mouseleave', () => { tr.style.background = tr.querySelector('.fa-check') ? 'var(--gray-100)' : ''; });
+    });
+  },
+
+  _filterSubtitles(q) {
+    if (!this._subtitleData) return;
+    const content = document.getElementById('subtitlePickerContent');
+    if (content) this._renderSubtitleList(this._subtitleData, content, q);
+  },
+
+  selectSubtitle(code, type) {
+    const input = document.getElementById('subLangs');
+    if (!input) return;
+    const current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!current.includes(code)) {
+      current.push(code);
+      input.value = current.join(',');
+    }
+    // Auto-check the right download checkbox
+    if (type === 'manual') {
+      const cb = document.getElementById('writeSubs');
+      if (cb) cb.checked = true;
+    } else {
+      const cb = document.getElementById('writeAutoSubs');
+      if (cb) cb.checked = true;
+    }
+    // Auto-enable embed subtitles (unless audio-only mode is active)
+    const audioOnly  = document.getElementById('extractAudio')?.checked;
+    const embedSubs  = document.getElementById('embedSubs');
+    if (embedSubs && !audioOnly) embedSubs.checked = true;
+
+    // YouTube rate-limits subtitle translation requests (HTTP 429) for unauthenticated sessions.
+    // Auto-set Safari cookies if no browser is already selected.
+    const cookiesSel = document.getElementById('cookiesFromBrowser');
+    let cookieNote = '';
+    if (cookiesSel && !cookiesSel.value) {
+      cookiesSel.value = 'safari';
+      cookieNote = ' • Safari cookies enabled to bypass YouTube rate limits';
+    }
+
+    // Refresh the list to show checkmark
+    if (this._subtitleData) {
+      const content = document.getElementById('subtitlePickerContent');
+      const search  = document.getElementById('subtitleSearch');
+      if (content) this._renderSubtitleList(this._subtitleData, content, search?.value || '');
+    }
+    const langName = this._LANG_NAMES[code] || code;
+    const embedNote = (!audioOnly && embedSubs) ? ' — will be embedded in MP4' : '';
+    UI.toast.success(`Added "${langName}" (${code})${embedNote}${cookieNote}`);
+  },
+
+  closeSubtitlePicker() {
+    const modal = document.getElementById('subtitlePickerModal');
+    if (modal) modal.style.display = 'none';
+    this._subtitleData = null;
+  },
+
+  // ─────────────────────────────────────────────────────────────────────────
+
   // Toggle batch URL mode
   toggleBatchMode() {
     const single = document.getElementById('url');
@@ -248,6 +515,7 @@ const App = {
 
     const isBatch = batch.style.display !== 'none';
     single.style.display = isBatch ? '' : 'none';
+    single.required = isBatch;
     batch.style.display = isBatch ? 'none' : '';
     if (playlist) playlist.style.display = isBatch ? '' : 'none';
     if (btn) btn.innerHTML = isBatch
@@ -260,6 +528,8 @@ const App = {
     try {
       const data = await API.fetch('/check-update');
       if (data.checked && data.latest && data.current && data.latest !== data.current) {
+        const dismissed = localStorage.getItem('yt-dlp-dismissed-update');
+        if (dismissed === data.latest) return;
         const banner = document.getElementById('updateBanner');
         const text = document.getElementById('updateBannerText');
         if (banner) banner.style.display = 'block';
@@ -270,6 +540,17 @@ const App = {
     }
   },
 
+  // Dismiss the update banner and remember this version
+  dismissUpdateBanner() {
+    const banner = document.getElementById('updateBanner');
+    if (banner) banner.style.display = 'none';
+    const text = document.getElementById('updateBannerText');
+    if (text) {
+      const version = (text.textContent || '').split('→').pop().trim();
+      if (version) localStorage.setItem('yt-dlp-dismissed-update', version);
+    }
+  },
+
   // Trigger yt-dlp self-update
   async updateYtDlp() {
     const btn = document.getElementById('updateYtDlpBtn');
@@ -277,7 +558,9 @@ const App = {
     try {
       const data = await API.fetch('/update-ytdlp', { method: 'POST' });
       UI.toast.success(data.message || 'yt-dlp updated successfully!');
-      document.getElementById('updateBanner').style.display = 'none';
+      localStorage.removeItem('yt-dlp-dismissed-update');
+      const banner = document.getElementById('updateBanner');
+      if (banner) banner.style.display = 'none';
     } catch (e) {
       UI.toast.error('Update failed: ' + e.message);
     } finally {
@@ -314,6 +597,9 @@ const App = {
     try {
       const data = await API.getVideoInfo(url);
       this._videoInfoCache.set(url, data);
+      if (this._videoInfoCache.size > this._VIDEO_CACHE_MAX) {
+        this._videoInfoCache.delete(this._videoInfoCache.keys().next().value);
+      }
       this._applyVideoPreview(url, data);
     } catch (error) {
       if (previewLoading) previewLoading.style.display = 'none';

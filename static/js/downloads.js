@@ -64,7 +64,7 @@ const Downloads = {
   // Parse a yt-dlp speed string (e.g. "1.50MiB/s") to bytes/s
   _parseSpeedBytes(speedStr) {
     if (!speedStr) return 0;
-    const match = speedStr.match(/([\d.]+)\s*([KMGT]i?B)\/s/i);
+    const match = speedStr.match(/([\d.]+)\s*([KMGT]i?B|B)\/s/i);
     if (!match) return 0;
     const value = parseFloat(match[1]);
     const unit = match[2].toUpperCase();
@@ -100,10 +100,8 @@ const Downloads = {
     }
   },
 
-  // Set pre-loaded download history (called from App.initStorage)
-  setHistory(history) {
-    // History display is owned by App; this is a no-op kept for API compatibility.
-  },
+  // No-op stub kept for API compatibility; history display is managed by App.
+  setHistory(history) {},
   
   // Setup event listeners
   setupEventListeners() {
@@ -171,13 +169,19 @@ const Downloads = {
       write_subs: document.getElementById('writeSubs').checked,
       write_auto_subs: document.getElementById('writeAutoSubs').checked,
       sub_langs: document.getElementById('subLangs').value,
+      embed_subs: document.getElementById('embedSubs').checked,
+      sub_format: document.getElementById('subFormat').value,
       limit_rate: document.getElementById('limitRate').value,
       retries: document.getElementById('retries').value,
       concurrent_fragments: document.getElementById('concurrentFragments').value,
       age_limit: document.getElementById('ageLimit').value,
       sponsorblock: document.getElementById('sponsorblock')?.checked || false,
       split_chapters: document.getElementById('splitChapters')?.checked || false,
-      normalize_audio: document.getElementById('normalizeAudio')?.checked || false
+      normalize_audio: document.getElementById('normalizeAudio')?.checked || false,
+      cookies_from_browser: document.getElementById('cookiesFromBrowser')?.value || '',
+      download_archive: document.getElementById('downloadArchive')?.checked || false,
+      section_start: document.getElementById('sectionStart')?.value || '',
+      section_end: document.getElementById('sectionEnd')?.value || ''
     };
     
     UI.loading.show('downloadBtn', 'Starting...');
@@ -324,11 +328,17 @@ const Downloads = {
   handleError(sessionId, data) {
     const download = this.activeDownloads.get(sessionId);
     if (!download || download.errorShown) return;
-    
+
     download.errorShown = true;
     download.status = 'error';
-    
-    UI.toast.error(`Download failed: ${data.error || 'Unknown error'}`, 8000);
+
+    // Find the last non-empty output line for a meaningful error message
+    const lines = (data.output || []).map(l => l.trim()).filter(Boolean);
+    const errorLine = lines.reverse().find(l =>
+      /error|failed|unable|no such|not found|forbidden|private|unavailable/i.test(l)
+    ) || lines[0] || data.error || 'Unknown error';
+
+    UI.toast.error(`Download failed: ${errorLine}`, 10000);
     Utils.playSound('error');
     
     // Remove from active after delay
@@ -472,6 +482,19 @@ const Downloads = {
       card.style.borderLeftColor = 'var(--success)';
     } else if (data.status === 'error') {
       card.style.borderLeftColor = 'var(--danger)';
+      // Show the last meaningful yt-dlp output line in the card
+      const lines = (data.output || []).map(l => l.trim()).filter(Boolean);
+      const errorLine = lines.reverse().find(l =>
+        /error|failed|unable|no such|not found|forbidden|private|unavailable/i.test(l)
+      ) || lines[0] || data.error || '';
+      let errorEl = card.querySelector('.download-error-detail');
+      if (!errorEl) {
+        errorEl = document.createElement('div');
+        errorEl.className = 'download-error-detail';
+        errorEl.style.cssText = 'font-size:12px; color:var(--danger); margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;';
+        card.appendChild(errorEl);
+      }
+      errorEl.textContent = errorLine;
     }
   },
   

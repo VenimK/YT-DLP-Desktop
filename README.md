@@ -22,17 +22,38 @@ A modern, cross-platform video/audio downloader desktop application built with F
 
 ## ✨ Features
 
-- � **Multi-Platform Support** - Download from 13+ platforms: YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, Twitter/X, Instagram, Facebook, Reddit, Dailymotion, Bilibili, PeerTube, and more
-- �� **Modern Glassmorphism UI** - Beautiful interface with animated backgrounds
+### Core
+- 🌐 **Multi-Platform Support** - Download from 13+ platforms: YouTube, SoundCloud, Bandcamp, Vimeo, TikTok, Twitter/X, Instagram, Facebook, Reddit, Dailymotion, Bilibili, PeerTube, and more
+- 🎨 **Modern Glassmorphism UI** - Beautiful interface with animated backgrounds
 - 🌓 **Dark/Light Mode** - Toggle between themes
 - 📥 **Real-time Progress** - Live download progress with speed and ETA
 - 📝 **Playlist Support** - Download entire playlists or select specific videos
 - 🎵 **Audio Extraction** - Download audio only in various formats (MP3, FLAC, AAC, etc.)
-- 🎬 **Multiple Formats** - Support for various video qualities (4K, 1080p, 720p, etc.)
-- 🗂️ **Subtitle Download** - Download video subtitles in multiple languages
-- 🖼️ **Metadata & Thumbnails** - Embed metadata and thumbnails in audio files
 - ⌨️ **Keyboard Shortcuts** - Power-user shortcuts (Ctrl+D, Ctrl+Q, Ctrl+Enter)
 - 🔒 **Standalone Executable** - No Python installation required (embedded Python)
+
+### Format & Quality
+- 🎬 **Format Picker** - Browse every real stream for a video (codec, resolution, FPS, file size) and click to use it — no more guessing quality presets
+- 📹 **Multiple Formats** - Presets for 4K, 1080p, 720p, 480p, 360p or fully custom format strings
+
+### Subtitles
+- � **Subtitle Picker** - Browse all available subtitle languages with live search; auto-detects manual uploads vs. auto-generated/translatable tracks
+- 🌍 **Auto-translated Subtitles** - Download YouTube auto-generated subtitles in any of 100+ supported languages (e.g. Arabic translation of a French video)
+- � **Subtitle Embedding** - Embed subtitles as a soft track inside the MP4 file (SRT → mov_text via ffmpeg)
+
+### Authentication & Privacy
+- 🍪 **Cookies from Browser** - Pass your Chrome, Firefox, Safari, Edge, or Brave session to download age-restricted or members-only content
+
+### Download Control
+- ✂️ **Clip by Timestamp** - Download only a specific segment of a video (`HH:MM:SS → HH:MM:SS`)
+- � **Skip Already Downloaded** - Maintain a download archive so re-running a playlist skips videos you already have
+- 🚦 **Speed Limit & Concurrent Fragments** - Control bandwidth usage
+- 🛡️ **SponsorBlock Integration** - Auto-remove or mark sponsor segments, intros, outros
+- 🔪 **Chapter Splitting** - Split a long video into one file per chapter
+
+### Metadata
+- 🖼️ **Metadata & Thumbnails** - Embed ID3 metadata and thumbnails in audio files
+- 🔊 **Audio Normalization** - Loudnorm post-processing via ffmpeg
 
 ## 🚀 Download
 
@@ -40,9 +61,9 @@ Pre-built executables are available on the [Releases](https://github.com/VenimK/
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | [yt-dlp-desktop-macos-arm64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-macos-arm64.zip) |
-| Windows | [yt-dlp-desktop-windows-x64.exe](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-windows-x64.exe) |
-| Linux | [yt-dlp-desktop-linux-x64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.3/yt-dlp-desktop-linux-x64) |
+| macOS (Apple Silicon) | [yt-dlp-desktop-macos-arm64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.5/yt-dlp-desktop-macos-arm64.zip) |
+| Windows | [yt-dlp-desktop-windows-x64.exe](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.5/yt-dlp-desktop-windows-x64.exe) |
+| Linux | [yt-dlp-desktop-linux-x64](https://github.com/VenimK/YT-DLP-Desktop/releases/download/v1.0.5/yt-dlp-desktop-linux-x64) |
 
 ## 🛠️ Installation
 
@@ -233,6 +254,36 @@ Go to **Actions** → **Build & Release** → **Run workflow**
 2. Select audio format (MP3, FLAC, etc.)
 3. Adjust quality (0=best, 9=worst)
 4. Enable "Embed Thumbnail" for album art
+
+### Subtitle Download & Embedding
+
+1. Click **Pick** next to "Subtitle Languages"
+2. Browse or search the list (Manual = creator-uploaded, Auto = machine-generated/translated)
+3. Click a language row — the app auto-enables the correct checkbox and uses browser cookies to avoid YouTube rate limits
+4. Keep "Embed Subtitles in File" checked to embed the track inside the MP4
+
+### Format Picker
+
+1. Paste a URL
+2. Click **Pick** next to "Video Format"
+3. Browse streams grouped by Video+Audio, Video Only, Audio Only
+4. Click a row to use that exact format ID; combine IDs manually (e.g. `137+251`)
+
+### Members-Only / Age-Restricted Content
+
+1. Open "Cookies from Browser" in Advanced Options
+2. Select the browser where you're logged into the site
+3. Download as normal — yt-dlp will use your session cookies
+
+### Clip a Video Segment
+
+1. In Advanced Options, fill in **Clip by Timestamp** (Start → End in `HH:MM:SS`)
+2. Only that segment will be downloaded — yt-dlp does not fetch the full file first
+
+### Skip Already Downloaded (Playlist Subscriptions)
+
+1. Check **Skip Already Downloaded** in Advanced Options
+2. Run the same playlist URL periodically — videos already in the archive are skipped automatically
 
 ### Keyboard Shortcuts
 

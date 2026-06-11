@@ -59,6 +59,31 @@ CONFIG_PATH = os.path.join(APP_DIR, 'config.json')
 AUTH_COOKIE_NAME = 'yt_dlp_desktop_auth'
 SESSION_TOKEN = os.urandom(24).hex()
 
+# Required for YouTube JS challenge solving (yt-dlp >= 2026.06)
+_YT_DLP_EXTRA_ARGS = ['--remote-components', 'ejs:github']
+
+def _detect_impersonate_target(yt_dlp_bin='yt-dlp'):
+    """Pick the best available impersonation target for the given yt-dlp binary."""
+    try:
+        result = subprocess.run(
+            [yt_dlp_bin, '--list-impersonate-targets'],
+            capture_output=True, text=True, timeout=10
+        )
+        targets = []
+        for line in (result.stdout + result.stderr).splitlines():
+            parts = line.split()
+            if parts and not parts[0].startswith('-') and re.match(r'^[A-Za-z]+-\d', parts[0]):
+                targets.append(parts[0])
+        # Prefer a recent desktop Chrome, then Safari, then anything
+        for prefix in ('Chrome-1', 'Chrome-', 'Safari-', ''):
+            match = next((t for t in reversed(targets) if t.startswith(prefix)), None)
+            if match:
+                return match
+    except Exception:
+        pass
+    return None
+
+
 ALLOWED_PLATFORM_HOSTS = {
     # YouTube
     'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be',
@@ -116,6 +141,18 @@ def _get_yt_dlp_executable():
         os.environ['PATH'] = bundle_bin + os.pathsep + os.environ.get('PATH', '')
         return bundled
     return 'yt-dlp'
+
+
+def _init_extra_args():
+    """Populate _YT_DLP_EXTRA_ARGS with impersonation target after executable is known."""
+    global _YT_DLP_EXTRA_ARGS
+    target = _detect_impersonate_target(_get_yt_dlp_executable())
+    if target:
+        _YT_DLP_EXTRA_ARGS += ['--impersonate', target]
+        print(f'[IMPERSONATE] Using target: {target}')
+
+
+_init_extra_args()
 
 
 def _ensure_app_dirs():
@@ -220,7 +257,7 @@ def parse_yt_dlp_progress(line):
         r'\[download\]\s+(\d+\.\d+)% of\s+~?\s*(\d+\.\d+)([KMGT]i?B)?.*?ETA (\d+:\d+)',
         r'\[download\]\s+(\d+\.\d+)%.*?ETA (\d+:\d+)',
         r'\[download\]\s+([\w\s.-]+) has already been downloaded',
-        r'\[download\]\s+Destination: ([\w\s.-]+)'
+        r'\[download\]\s+Destination: (.+)'
     ]
     
     for pattern in patterns:
@@ -229,7 +266,13 @@ def parse_yt_dlp_progress(line):
             if 'has already been downloaded' in line:
                 return {'status': 'completed', 'filename': match.group(1)}
             elif 'Destination:' in line:
-                return {'status': 'started', 'filename': match.group(1)}
+                dest = match.group(1).strip()
+                # Strip yt-dlp temp suffixes to show the final filename
+                for _sfx in ('.temp', '.part', '.ytdl'):
+                    if dest.endswith(_sfx):
+                        dest = dest[:-len(_sfx)]
+                        break
+                return {'status': 'started', 'filename': os.path.basename(dest)}
             elif len(match.groups()) >= 4:
                 return {
                     'progress': float(match.group(1)),
@@ -272,7 +315,7 @@ def search_youtube():
     if not query:
         return jsonify({'error': 'Query is required'}), 400
     
-    cmd = [_get_yt_dlp_executable(), '--dump-json', '--flat-playlist', '--no-download',
+    cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + ['--dump-json', '--flat-playlist', '--no-download',
            f'ytsearch{max_results}:{query}']
     
     log('SEARCH', f'"{query}" (max {max_results})')
@@ -327,6 +370,89 @@ def stream_file(filename):
     log('PLAYER', f'Streaming: {safe_name}')
     return send_file(resolved, conditional=True)
 
+@app.route('/fetch-formats', methods=['POST'])
+def fetch_formats():
+    """Return the list of available formats for a URL."""
+    data = request.json
+    url = data.get('url', '')
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+    if not _is_allowed_youtube_url(url):
+        return jsonify({'error': 'URL not supported'}), 400
+
+    cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + [
+        '--dump-json', '--no-download', '--skip-download', '--no-playlist', url
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            err = (result.stderr or result.stdout or 'Unknown error')[:400]
+            return jsonify({'error': err}), 500
+        first_line = next((l for l in result.stdout.splitlines() if l.strip().startswith('{')), '')
+        info = json.loads(first_line)
+        formats = []
+        for f in info.get('formats', []):
+            vcodec = f.get('vcodec') or 'none'
+            acodec = f.get('acodec') or 'none'
+            size = f.get('filesize') or f.get('filesize_approx')
+            formats.append({
+                'format_id': f.get('format_id', ''),
+                'ext': f.get('ext', ''),
+                'resolution': f.get('resolution', '') or f.get('format_note', ''),
+                'fps': f.get('fps'),
+                'vcodec': vcodec,
+                'acodec': acodec,
+                'has_video': vcodec != 'none',
+                'has_audio': acodec != 'none',
+                'filesize': size,
+                'tbr': f.get('tbr'),
+                'format_note': f.get('format_note', ''),
+            })
+        return jsonify({'formats': formats, 'title': info.get('title', '')})
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timed out fetching formats'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/fetch-subtitles', methods=['POST'])
+def fetch_subtitles():
+    """Return available subtitle languages for a URL."""
+    data = request.json
+    url = data.get('url', '')
+    if not url:
+        return jsonify({'error': 'URL is required'}), 400
+    if not _is_allowed_youtube_url(url):
+        return jsonify({'error': 'URL not supported'}), 400
+
+    cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + [
+        '--dump-json', '--no-download', '--skip-download', '--no-playlist', url
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        if result.returncode != 0:
+            err = (result.stderr or result.stdout or 'Unknown error')[:400]
+            return jsonify({'error': err}), 500
+        first_line = next((l for l in result.stdout.splitlines() if l.strip().startswith('{')), '')
+        info = json.loads(first_line)
+
+        def _langs(d):
+            return {
+                code: list({f.get('ext', '') for f in fmts if f.get('ext')})
+                for code, fmts in (d or {}).items()
+            }
+
+        return jsonify({
+            'title': info.get('title', ''),
+            'manual': _langs(info.get('subtitles', {})),
+            'auto':   _langs(info.get('automatic_captions', {})),
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Timed out fetching subtitles'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/download', methods=['POST'])
 def download():
     data = request.json
@@ -340,7 +466,7 @@ def download():
     if not _is_allowed_youtube_url(url):
         return jsonify({'error': 'Only supported platform URLs are allowed'}), 400
     
-    cmd = [_get_yt_dlp_executable(), '--newline', '--console-title']
+    cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + ['--newline', '--console-title']
     
     if options.get('extract_audio', False):
         # When extracting audio only, use bestaudio format to avoid downloading video
@@ -389,13 +515,31 @@ def download():
         cmd.append('--write-thumbnail')
 
     # Subtitle options
-    if options.get('write_subs', False):
+    write_subs = options.get('write_subs', False)
+    write_auto_subs = options.get('write_auto_subs', False)
+    if write_subs:
         cmd.append('--write-subs')
-        if options.get('sub_langs'):
-            cmd.extend(['--sub-langs', options['sub_langs']])
-
-    if options.get('write_auto_subs', False):
+    if write_auto_subs:
         cmd.append('--write-auto-subs')
+    if (write_subs or write_auto_subs):
+        sub_langs = (options.get('sub_langs') or '').strip()
+        if sub_langs:
+            cmd.extend(['--sub-langs', sub_langs])
+        embed_subs = options.get('embed_subs', False) and not options.get('extract_audio', False)
+        sub_format = (options.get('sub_format') or 'srt').strip()
+        if embed_subs:
+            cmd.extend(['--embed-subs', '--merge-output-format', 'mp4'])
+            # SRT embeds most reliably into MP4 via ffmpeg mov_text
+            effective_fmt = sub_format if sub_format not in ('', 'vtt', 'best') else 'srt'
+            cmd.extend(['--convert-subs', effective_fmt])
+        elif sub_format and sub_format != 'vtt':
+            cmd.extend(['--convert-subs', sub_format])
+        # Rate-limit subtitle requests to reduce HTTP 429 chance
+        cmd.extend(['--sleep-subtitles', '3'])
+        # Only suppress errors when NOT embedding — if embedding, surface failures
+        # so the user knows to enable browser cookies (see cookies_from_browser)
+        if not embed_subs:
+            cmd.append('--ignore-errors')
 
     # Download control options
     if options.get('limit_rate'):
@@ -427,6 +571,24 @@ def download():
     # Audio normalization via ffmpeg loudnorm
     if options.get('normalize_audio', False):
         cmd.extend(['--postprocessor-args', 'ffmpeg:-af loudnorm=I=-16:TP=-1.5:LRA=11'])
+
+    # Cookies from browser for authenticated downloads
+    browser = (options.get('cookies_from_browser') or '').strip()
+    if browser:
+        cmd.extend(['--cookies-from-browser', browser])
+
+    # Download archive — skip already-downloaded videos
+    if options.get('download_archive', False):
+        archive_path = os.path.join(APP_DIR, 'archive.txt')
+        cmd.extend(['--download-archive', archive_path])
+
+    # Clip by timestamp
+    section_start = (options.get('section_start') or '').strip()
+    section_end = (options.get('section_end') or '').strip()
+    if section_start or section_end:
+        start = section_start or '0'
+        end = section_end or 'inf'
+        cmd.extend(['--download-sections', f'*{start}-{end}'])
 
     cmd.append(url)
     
@@ -487,7 +649,7 @@ def download():
                             download_progress[session_id]['status'] = progress_info['status']
                         
                         # Parse actual speed from yt-dlp output if available
-                        speed_match = re.search(r'at\s+([\d.]+\s*[KMGT]i?B/s)', line)
+                        speed_match = re.search(r'at\s+([\d.]+\s*(?:[KMGT]i?B|B)/s)', line)
                         if speed_match:
                             download_progress[session_id]['speed'] = speed_match.group(1)
             
@@ -584,7 +746,7 @@ def get_playlist_metadata():
     max_items = 50 if is_radio_playlist else 100  # Limit radio to 50, others to 100
     
     # Use yt-dlp to get playlist metadata with limit
-    cmd = [_get_yt_dlp_executable(), '--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
+    cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + ['--flat-playlist', '--playlist-end', str(max_items), '--dump-json', url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -631,7 +793,7 @@ def list_downloads():
         extensions = ('.mp4', '.webm', '.mp3', '.m4a', '.flac', '.wav', '.opus', 
                      '.vtt', '.srt', '.lrc')
         for filename in os.listdir(DOWNLOADS_DIR):
-            if filename.endswith(extensions):
+            if filename.endswith(extensions) and not any(filename.endswith(s) for s in ('.temp', '.part', '.ytdl')):
                 file_path = os.path.join(DOWNLOADS_DIR, filename)
                 files.append({
                     'name': filename,
@@ -647,6 +809,8 @@ def download_file(filename):
     """Serve a downloaded file"""
     try:
         file_path, safe_name = _resolve_download_path(filename)
+        if any(safe_name.endswith(s) for s in ('.temp', '.part', '.ytdl')):
+            return jsonify({'error': 'File is still downloading'}), 409
         if not os.path.exists(file_path):
             return jsonify({'error': 'File not found'}), 404
 
@@ -695,7 +859,7 @@ def get_video_info():
         playlist_flag = ['--playlist-items', '1']
     else:
         playlist_flag = ['--no-playlist']
-    cmd = [_get_yt_dlp_executable(), '--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
+    cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + ['--dump-json', '--no-download', '--skip-download'] + playlist_flag + [url]
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -984,26 +1148,45 @@ def check_update():
 
 @app.route('/update-ytdlp', methods=['POST'])
 def update_ytdlp():
-    """Run yt-dlp -U to self-update the binary"""
-    try:
+    """Update yt-dlp — uses self-update or pip fallback depending on install method."""
+    def _do_update():
+        # Try yt-dlp's built-in updater first
         result = subprocess.run(
             [_get_yt_dlp_executable(), '-U'],
             capture_output=True, text=True, timeout=120
         )
         output = (result.stdout + result.stderr).strip()
-        if result.returncode == 0:
-            log('UPDATE', 'yt-dlp self-update succeeded')
-            # Refresh stored version info
+        pip_installed = 'pip' in output.lower() and result.returncode != 0
+        if result.returncode == 0 and not pip_installed:
+            return output, None
+
+        # Fall back to pip when yt-dlp was installed via pip/wheel
+        if pip_installed or result.returncode != 0:
+            log('UPDATE', 'pip-installed yt-dlp detected; upgrading via pip')
+            pip_result = subprocess.run(
+                [sys.executable, '-m', 'pip', 'install', '--upgrade', 'yt-dlp'],
+                capture_output=True, text=True, timeout=180
+            )
+            pip_output = (pip_result.stdout + pip_result.stderr).strip()
+            if pip_result.returncode == 0:
+                return pip_output or 'yt-dlp updated via pip', None
+            return None, pip_output or 'pip upgrade failed'
+
+        return None, output or 'Update failed'
+
+    try:
+        message, error = _do_update()
+        if message is not None:
+            log('UPDATE', 'yt-dlp update succeeded')
             new_version = _check_yt_dlp()
             if new_version:
                 _update_info['current'] = new_version
                 _update_info['latest'] = None
-            return jsonify({'success': True, 'message': output or 'yt-dlp updated successfully'})
-        else:
-            log('ERROR', f'yt-dlp update failed: {output[:200]}')
-            return jsonify({'error': output or 'Update failed'}), 500
+            return jsonify({'success': True, 'message': message})
+        log('ERROR', f'yt-dlp update failed: {(error or "")[:200]}')
+        return jsonify({'error': error}), 500
     except subprocess.TimeoutExpired:
-        return jsonify({'error': 'Update timed out (120s)'}), 500
+        return jsonify({'error': 'Update timed out'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1020,7 +1203,7 @@ def test_platform():
         return jsonify({'error': 'Platform not supported'}), 400
     
     try:
-        cmd = [_get_yt_dlp_executable(), '--simulate', '--no-download', '--dump-json', url]
+        cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + ['--simulate', '--no-download', '--dump-json', url]
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:

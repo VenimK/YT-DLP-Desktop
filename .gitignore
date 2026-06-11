@@ -82,3 +82,6 @@ tmp/
 temp/
 *.tmp
 *.temp
+
+# Download archive (skip-already-downloaded list)
+archive.txt

@@ -106,7 +106,7 @@
                 </button>
               </label>
               <input type="text" id="url" name="url" class="form-input" 
-                     placeholder="https://www.youtube.com/watch?v=...">
+                     placeholder="https://www.youtube.com/watch?v=..." required>
               <textarea id="urlBatch" name="urlBatch" class="form-input" rows="4"
                         placeholder="One URL per line&#10;https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/watch?v=..."
                         style="display:none; resize:vertical; font-family: monospace; font-size: 0.9em;"></textarea>
@@ -126,15 +126,20 @@
             <!-- Video Format -->
             <div class="form-group">
               <label class="form-label" for="format"><i class="fas fa-film"></i> Video Format</label>
-              <select id="format" name="format" class="form-select">
-                <option value="bestvideo+bestaudio/best">Best Quality (Video + Audio)</option>
-                <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]">1080p HD</option>
-                <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p HD</option>
-                <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
-                <option value="bestvideo[height<=360]+bestaudio/best[height<=360]">360p</option>
-                <option value="best">Auto (Best Available)</option>
-                <option value="worst">Smallest File Size</option>
-              </select>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <select id="format" name="format" class="form-select" style="flex:1;">
+                  <option value="bestvideo+bestaudio/best">Best Quality (Video + Audio)</option>
+                  <option value="bestvideo[height<=1080]+bestaudio/best[height<=1080]">1080p HD</option>
+                  <option value="bestvideo[height<=720]+bestaudio/best[height<=720]">720p HD</option>
+                  <option value="bestvideo[height<=480]+bestaudio/best[height<=480]">480p</option>
+                  <option value="bestvideo[height<=360]+bestaudio/best[height<=360]">360p</option>
+                  <option value="best">Auto (Best Available)</option>
+                  <option value="worst">Smallest File Size</option>
+                </select>
+                <button type="button" class="btn btn-sm" onclick="App.fetchFormats()" title="Show all available formats for this video">
+                  <i class="fas fa-list-alt"></i> Pick
+                </button>
+              </div>
             </div>
             
             <!-- Output Template -->
@@ -150,7 +155,8 @@
             <!-- Extract Audio -->
             <div class="checkbox-group">
               <label>
-                <input type="checkbox" id="extractAudio" name="extractAudio">
+                <input type="checkbox" id="extractAudio" name="extractAudio"
+                       onchange="const e=document.getElementById('embedSubs');if(e){e.disabled=this.checked;if(this.checked)e.checked=false;}">
                 <span><i class="fas fa-music"></i> Extract Audio Only</span>
               </label>
             </div>
@@ -276,13 +282,36 @@
                   </label>
                 </div>
                 
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="embedSubs" name="embedSubs">
+                    <span><i class="fas fa-file-video"></i> Embed Subtitles in File</span>
+                  </label>
+                  <span class="form-help" style="margin-left:24px;">Requires MP4 output &mdash; subtitle track will be inside the video file</span>
+                </div>
+
                 <div class="form-group" style="margin-top: 10px;">
                   <label class="form-label" for="subLangs"><i class="fas fa-language"></i> Subtitle Languages</label>
-                  <input type="text" id="subLangs" name="subLangs" class="form-input"
-                         placeholder="en,es,fr" value="en">
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="text" id="subLangs" name="subLangs" class="form-input"
+                           placeholder="en,es,fr" value="en" style="flex:1;">
+                    <button type="button" class="btn btn-sm" onclick="App.fetchSubtitles()" title="Browse available subtitle languages">
+                      <i class="fas fa-closed-captioning"></i> Pick
+                    </button>
+                  </div>
                   <span class="form-help">Comma-separated language codes</span>
                 </div>
-                
+
+                <div class="form-group">
+                  <label class="form-label" for="subFormat"><i class="fas fa-file-alt"></i> Subtitle Format</label>
+                  <select id="subFormat" name="subFormat" class="form-input">
+                    <option value="srt">SubRip (.srt) — best for embedding</option>
+                    <option value="vtt">WebVTT (.vtt)</option>
+                    <option value="ass">ASS/SSA (.ass)</option>
+                    <option value="best">Best available</option>
+                  </select>
+                </div>
+
                 <!-- Download Control -->
                 <div class="form-group">
                   <label class="form-label" for="limitRate"><i class="fas fa-tachometer-alt"></i> Speed Limit</label>
@@ -333,6 +362,43 @@
                   <input type="number" id="ageLimit" name="ageLimit" class="form-input"
                          min="0" max="21" placeholder="No limit">
                   <span class="form-help">Maximum age in years</span>
+                </div>
+
+                <!-- Cookies from browser -->
+                <div class="form-group">
+                  <label class="form-label" for="cookiesFromBrowser"><i class="fas fa-cookie-bite"></i> Cookies from Browser</label>
+                  <select id="cookiesFromBrowser" name="cookiesFromBrowser" class="form-select">
+                    <option value="">None (no login required)</option>
+                    <option value="chrome">Chrome</option>
+                    <option value="firefox">Firefox</option>
+                    <option value="safari">Safari</option>
+                    <option value="edge">Edge</option>
+                    <option value="brave">Brave</option>
+                    <option value="chromium">Chromium</option>
+                  </select>
+                  <span class="form-help">For members-only or age-restricted content</span>
+                </div>
+
+                <!-- Download archive -->
+                <div class="checkbox-group">
+                  <label>
+                    <input type="checkbox" id="downloadArchive" name="downloadArchive">
+                    <span><i class="fas fa-history"></i> Skip Already Downloaded</span>
+                  </label>
+                  <span class="form-help" style="margin-left:24px;">Keeps a record so re-running a playlist skips existing videos</span>
+                </div>
+
+                <!-- Clip by timestamp -->
+                <div class="form-group">
+                  <label class="form-label"><i class="fas fa-cut"></i> Clip by Timestamp</label>
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="text" id="sectionStart" name="sectionStart" class="form-input"
+                           placeholder="Start  00:01:30" style="flex:1;">
+                    <span style="color:var(--text-muted);">→</span>
+                    <input type="text" id="sectionEnd" name="sectionEnd" class="form-input"
+                           placeholder="End  00:05:00" style="flex:1;">
+                  </div>
+                  <span class="form-help">HH:MM:SS — leave blank to keep original start/end</span>
                 </div>
               </div>
             </div>
@@ -387,6 +453,35 @@
         </button>
       </form>
       
+      <!-- Format Picker Modal -->
+      <div id="formatPickerModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.6); overflow-y:auto; padding:20px;" onclick="if(event.target===this)App.closeFormatPicker()">
+        <div style="background:var(--card-bg); margin:0 auto; max-width:860px; border-radius:14px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+            <h3 style="margin:0;"><i class="fas fa-film"></i> Available Formats</h3>
+            <button type="button" class="btn btn-sm" onclick="App.closeFormatPicker()"><i class="fas fa-times"></i></button>
+          </div>
+          <p id="formatPickerTitle" style="margin:0 0 14px; color:var(--text-muted); font-size:0.9em;"></p>
+          <div id="formatPickerContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading formats…</p></div></div>
+        </div>
+      </div>
+
+      <!-- Subtitle Picker Modal -->
+      <div id="subtitlePickerModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.6); overflow-y:auto; padding:20px;" onclick="if(event.target===this)App.closeSubtitlePicker()">
+        <div style="background:var(--card-bg); margin:0 auto; max-width:700px; border-radius:14px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;"><i class="fas fa-closed-captioning"></i> Available Subtitles</h3>
+            <button type="button" class="btn btn-sm" onclick="App.closeSubtitlePicker()"><i class="fas fa-times"></i></button>
+          </div>
+          <p id="subtitlePickerTitle" style="margin:0 0 10px; color:var(--text-muted); font-size:0.9em;"></p>
+          <input type="text" id="subtitleSearch" class="form-input" placeholder="Search language…" oninput="App._filterSubtitles(this.value)" style="margin-bottom:14px;">
+          <div id="subtitlePickerContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading…</p></div></div>
+          <p style="margin-top:14px; font-size:0.8em; color:var(--text-muted);">
+            <i class="fas fa-info-circle"></i> Click a language to <strong>add</strong> it to the Subtitle Languages field.
+            <strong>Manual</strong> = uploaded by creator &nbsp;|&nbsp; <strong>Auto</strong> = machine-generated or translated.
+          </p>
+        </div>
+      </div>
+
       <!-- Active Downloads Queue -->
       <div id="activeDownloads" style="display: none;">
         <div class="active-downloads-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -508,7 +603,7 @@
       <button type="button" id="updateYtDlpBtn" class="btn btn-sm" onclick="App.updateYtDlp()">
         <i class="fas fa-download"></i> Update
       </button>
-      <button type="button" class="btn btn-sm" onclick="document.getElementById('updateBanner').style.display='none'" style="padding:4px 8px;">
+      <button type="button" class="btn btn-sm" onclick="App.dismissUpdateBanner()" style="padding:4px 8px;">
         <i class="fas fa-times"></i>
       </button>
     </div>
