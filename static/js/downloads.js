@@ -181,7 +181,8 @@ const Downloads = {
       cookies_from_browser: document.getElementById('cookiesFromBrowser')?.value || '',
       download_archive: document.getElementById('downloadArchive')?.checked || false,
       section_start: document.getElementById('sectionStart')?.value || '',
-      section_end: document.getElementById('sectionEnd')?.value || ''
+      section_end: document.getElementById('sectionEnd')?.value || '',
+      audio_lang: document.getElementById('audioLang')?.value || ''
     };
     
     UI.loading.show('downloadBtn', 'Starting...');

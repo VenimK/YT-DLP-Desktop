@@ -272,6 +272,10 @@ def parse_yt_dlp_progress(line):
                     if dest.endswith(_sfx):
                         dest = dest[:-len(_sfx)]
                         break
+                # Strip ffmpeg fragment suffixes (.f400, .f401, etc.)
+                frag_match = re.search(r'\.f\d+\.', dest)
+                if frag_match:
+                    dest = dest[:frag_match.start()] + dest[frag_match.end():]
                 return {'status': 'started', 'filename': os.path.basename(dest)}
             elif len(match.groups()) >= 4:
                 return {
@@ -407,6 +411,7 @@ def fetch_formats():
                 'filesize': size,
                 'tbr': f.get('tbr'),
                 'format_note': f.get('format_note', ''),
+                'language': f.get('language'),
             })
         return jsonify({'formats': formats, 'title': info.get('title', '')})
     except subprocess.TimeoutExpired:
@@ -468,10 +473,47 @@ def download():
     
     cmd = [_get_yt_dlp_executable()] + _YT_DLP_EXTRA_ARGS + ['--newline', '--console-title']
     
+    # Audio language selection
+    audio_lang = (options.get('audio_lang') or '').strip()
+    
+    # If audio language is specified, fetch formats to find one with that language
+    selected_format_id = None
+    if audio_lang:
+        lang = audio_lang.split(',')[0].strip()
+        try:
+            result = subprocess.run(
+                [_get_yt_dlp_executable(), '--dump-json', '--no-download', '--skip-download', url],
+                capture_output=True, text=True, timeout=30
+            )
+            first_line = next((l for l in result.stdout.splitlines() if l.strip().startswith('{')), '')
+            if not first_line:
+                raise ValueError('No JSON in output')
+            info = json.loads(first_line)
+            # Find best quality format with the requested language
+            formats_with_lang = []
+            for f in info.get('formats', []):
+                if f.get('language') == lang and f.get('vcodec') not in (None, 'none'):
+                    formats_with_lang.append(f)
+            if formats_with_lang:
+                # Sort by height/resolution, pick highest quality
+                formats_with_lang.sort(key=lambda x: (x.get('height') or 0, x.get('width') or 0, x.get('tbr') or 0), reverse=True)
+                selected_format_id = formats_with_lang[0].get('format_id')
+                log('DOWNLOAD', f'Audio language "{lang}" → format {selected_format_id}')
+        except Exception as _e:
+            log('DOWNLOAD', f'Audio language lookup failed: {_e}')
+    
     if options.get('extract_audio', False):
         # When extracting audio only, use bestaudio format to avoid downloading video
-        cmd.extend(['-f', 'bestaudio/best'])
+        # Apply language filter if specified
+        if audio_lang:
+            lang = audio_lang.split(',')[0].strip()
+            cmd.extend(['-f', f'bestaudio[language={lang}]/best'])
+        else:
+            cmd.extend(['-f', 'bestaudio/best'])
         cmd.append('--extract-audio')
+    elif selected_format_id:
+        # Audio language was specified and resolved to a specific format — takes priority over dropdown
+        cmd.extend(['-f', selected_format_id])
     elif options.get('format'):
         cmd.extend(['-f', options['format']])
     
@@ -809,8 +851,22 @@ def download_file(filename):
     """Serve a downloaded file"""
     try:
         file_path, safe_name = _resolve_download_path(filename)
-        if any(safe_name.endswith(s) for s in ('.temp', '.part', '.ytdl')):
-            return jsonify({'error': 'File is still downloading'}), 409
+        
+        # If the requested file is a fragment, try to find the final merged file
+        frag_match = re.search(r'\.f\d+\.', safe_name)
+        if frag_match:
+            final_name = safe_name[:frag_match.start()] + safe_name[frag_match.end():]
+            final_path = os.path.join(os.path.dirname(file_path), final_name)
+            if os.path.exists(final_path):
+                file_path = final_path
+                safe_name = final_name
+            elif not os.path.exists(file_path):
+                # Fragment doesn't exist and final doesn't exist either
+                return jsonify({'error': 'File not found — download may have failed during merge'}), 404
+        
+        # Block temporary/fragment files (unless we found the final file above)
+        if any(safe_name.endswith(s) for s in ('.temp', '.part', '.ytdl', '.f') or re.search(r'\.f\d+\.', safe_name)):
+            return jsonify({'error': 'File is still downloading or is a fragment'}), 409
         if not os.path.exists(file_path):
             return jsonify({'error': 'File not found'}), 404
 

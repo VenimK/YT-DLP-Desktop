@@ -503,6 +503,100 @@ const App = {
     this._subtitleData = null;
   },
 
+  // ── Audio Language Picker ─────────────────────────────────────────────────────
+  async fetchAudioLanguages() {
+    const url = document.getElementById('url')?.value || document.getElementById('urlBatch')?.value || '';
+    if (!url) {
+      UI.toast.error('Please enter a video URL first');
+      return;
+    }
+    const modal = document.getElementById('audioLangPickerModal');
+    const content = document.getElementById('audioLangPickerContent');
+    const title = document.getElementById('audioLangPickerTitle');
+    if (modal) modal.style.display = 'flex';
+    if (content) content.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading audio languages…</p></div>';
+    if (title) title.textContent = '';
+
+    try {
+      const res = await fetch('/fetch-formats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch formats');
+      this._audioLangData = data;
+      if (title) title.textContent = data.title || '';
+      if (content) this._renderAudioLangList(data, content, '');
+    } catch (err) {
+      if (content) content.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>${err.message}</p></div>`;
+    }
+  },
+
+  _renderAudioLangList(data, container, searchQuery) {
+    const q = searchQuery.toLowerCase();
+    const langs = new Set();
+    for (const f of data.formats || []) {
+      if (f.has_audio && f.language) {
+        const name = this._LANG_NAMES[f.language] || f.language;
+        if (!q || name.toLowerCase().includes(q) || f.language.toLowerCase().includes(q)) {
+          langs.add(f.language);
+        }
+      }
+    }
+    if (langs.size === 0) {
+      container.innerHTML = '<div class="empty-state"><i class="fas fa-info-circle"></i><p>No alternate audio tracks found for this video</p></div>';
+      return;
+    }
+    const current = (document.getElementById('audioLang')?.value || '').split(',').map(s => s.trim()).filter(Boolean);
+    let html = '<div style="display:grid; gap:8px;">';
+    for (const code of Array.from(langs).sort()) {
+      const name = this._LANG_NAMES[code] || code;
+      const selected = current.includes(code);
+      html += `
+        <div class="format-row${selected ? ' selected' : ''}" onclick="App.selectAudioLang('${code}')" style="cursor:pointer; padding:10px 12px; border-radius:8px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong>${name}</strong>
+            <span style="color:var(--text-muted); font-size:0.85em; margin-left:8px;">(${code})</span>
+          </div>
+          ${selected ? '<i class="fas fa-check" style="color:var(--success);"></i>' : ''}
+        </div>
+      `;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  },
+
+  _filterAudioLangs(query) {
+    if (this._audioLangData) {
+      const content = document.getElementById('audioLangPickerContent');
+      if (content) this._renderAudioLangList(this._audioLangData, content, query);
+    }
+  },
+
+  selectAudioLang(code) {
+    const input = document.getElementById('audioLang');
+    if (!input) return;
+    const current = input.value.split(',').map(s => s.trim()).filter(Boolean);
+    if (!current.includes(code)) {
+      current.push(code);
+      input.value = current.join(',');
+    }
+    const langName = this._LANG_NAMES[code] || code;
+    UI.toast.success(`Added "${langName}" (${code})`);
+    if (this._audioLangData) {
+      const content = document.getElementById('audioLangPickerContent');
+      const search = document.getElementById('audioLangSearch');
+      if (content) this._renderAudioLangList(this._audioLangData, content, search?.value || '');
+    }
+  },
+
+  closeAudioLangPicker() {
+    const modal = document.getElementById('audioLangPickerModal');
+    if (modal) modal.style.display = 'none';
+    this._audioLangData = null;
+  },
+
   // ─────────────────────────────────────────────────────────────────────────
 
   // Toggle batch URL mode

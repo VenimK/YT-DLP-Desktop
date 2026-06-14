@@ -173,7 +173,20 @@
                 <option value="m4a">M4A (Apple)</option>
               </select>
             </div>
-            
+
+            <!-- Audio Language -->
+            <div class="form-group" style="margin-top: 10px;">
+              <label class="form-label" for="audioLang"><i class="fas fa-globe"></i> Audio Language</label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="text" id="audioLang" name="audioLang" class="form-input"
+                       placeholder="en,es,fr" style="flex:1;">
+                <button type="button" class="btn btn-sm" onclick="App.fetchAudioLanguages()" title="Browse available audio languages">
+                  <i class="fas fa-music"></i> Pick
+                </button>
+              </div>
+              <span class="form-help">Comma-separated language codes (e.g. en, es)</span>
+            </div>
+
             <!-- Audio Quality -->
             <div class="form-group">
               <label class="form-label" for="audioQuality"><i class="fas fa-volume-up"></i> Audio Quality (0-9)</label>
@@ -478,6 +491,23 @@
           <p style="margin-top:14px; font-size:0.8em; color:var(--text-muted);">
             <i class="fas fa-info-circle"></i> Click a language to <strong>add</strong> it to the Subtitle Languages field.
             <strong>Manual</strong> = uploaded by creator &nbsp;|&nbsp; <strong>Auto</strong> = machine-generated or translated.
+          </p>
+        </div>
+      </div>
+
+      <!-- Audio Language Picker Modal -->
+      <div id="audioLangPickerModal" style="display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.6); overflow-y:auto; padding:20px;" onclick="if(event.target===this)App.closeAudioLangPicker()">
+        <div style="background:var(--card-bg); margin:0 auto; max-width:600px; border-radius:14px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;"><i class="fas fa-music"></i> Available Audio Languages</h3>
+            <button type="button" class="btn btn-sm" onclick="App.closeAudioLangPicker()"><i class="fas fa-times"></i></button>
+          </div>
+          <p id="audioLangPickerTitle" style="margin:0 0 10px; color:var(--text-muted); font-size:0.9em;"></p>
+          <input type="text" id="audioLangSearch" class="form-input" placeholder="Search language…" oninput="App._filterAudioLangs(this.value)" style="margin-bottom:14px;">
+          <div id="audioLangPickerContent"><div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading…</p></div></div>
+          <p style="margin-top:14px; font-size:0.8em; color:var(--text-muted;">
+            <i class="fas fa-info-circle"></i> Click a language to <strong>add</strong> it to the Audio Language field.
+            Only audio tracks with different languages are shown (e.g. Spanish dub of an English video).
           </p>
         </div>
       </div>
